@@ -1,5 +1,10 @@
 # Muppet Platform
 
+[![CI Pipeline](https://github.com/your-org/muppet-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/muppet-platform/actions/workflows/ci.yml)
+[![CD Pipeline](https://github.com/your-org/muppet-platform/actions/workflows/cd.yml/badge.svg)](https://github.com/your-org/muppet-platform/actions/workflows/cd.yml)
+[![Security Scan](https://github.com/your-org/muppet-platform/actions/workflows/security.yml/badge.svg)](https://github.com/your-org/muppet-platform/actions/workflows/security.yml)
+[![Maintenance](https://github.com/your-org/muppet-platform/actions/workflows/maintenance.yml/badge.svg)](https://github.com/your-org/muppet-platform/actions/workflows/maintenance.yml)
+
 > Internal developer platform for creating and managing backend applications
 
 The Muppet Platform enables rapid creation and management of standardized backend applications ("muppets") through automated template generation, infrastructure provisioning, and lifecycle management.
