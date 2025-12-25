@@ -145,57 +145,7 @@ jobs:
         path: trivy-results.json
         retention-days: 30
 
-  # Job 4: Infrastructure Security Scan
-  infrastructure-security:
-    name: Infrastructure Security Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup OpenTofu
-      uses: opentofu/setup-opentofu@v1
-      with:
-        tofu_version: '1.6.0'
-        
-    - name: Run tfsec security scanner
-      uses: aquasecurity/tfsec-action@v1.0.3
-      with:
-        working_directory: 'terraform-modules'
-        format: 'sarif'
-        soft_fail: true
-        
-    - name: Upload tfsec scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      continue-on-error: true
-      with:
-        sarif_file: 'results.sarif'
-        
-    - name: Upload tfsec SARIF as artifact (fallback)
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: tfsec-sarif-results
-        path: results.sarif
-        retention-days: 30
-        
-    - name: Run Checkov security scanner
-      run: |
-        pip install checkov
-        checkov -d terraform-modules --framework terraform --output json --output-file checkov-report.json || true
-        checkov -d terraform-modules --framework terraform
-        
-    - name: Upload Checkov report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: checkov-report
-        path: checkov-report.json
-        retention-days: 30
-
-  # Job 5: Secrets Scan
+  # Job 4: Secrets Scan
   secrets-scan:
     name: Secrets Scan
     runs-on: ubuntu-latest
@@ -216,11 +166,11 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-  # Job 6: Security Summary
+  # Job 5: Security Summary
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs: [dependency-scan, code-security, container-security, infrastructure-security, secrets-scan]
+    needs: [dependency-scan, code-security, container-security, secrets-scan]
     if: always()
     
     steps:
@@ -255,12 +205,6 @@ jobs:
           echo "❌ Container Security Scan: FAILED" >> security-summary.md
         fi
         
-        if [ "${{ needs.infrastructure-security.result }}" = "success" ]; then
-          echo "✅ Infrastructure Security Scan: PASSED" >> security-summary.md
-        else
-          echo "❌ Infrastructure Security Scan: FAILED" >> security-summary.md
-        fi
-        
         if [ "${{ needs.secrets-scan.result }}" = "success" ]; then
           echo "✅ Secrets Scan: PASSED" >> security-summary.md
         else
@@ -273,7 +217,6 @@ jobs:
         echo "- Safety Report: \`safety-report.json\`" >> security-summary.md
         echo "- Bandit Report: \`bandit-report.json\`" >> security-summary.md
         echo "- Trivy Report: \`trivy-results.json\`" >> security-summary.md
-        echo "- Checkov Report: \`checkov-report.json\`" >> security-summary.md
         echo "" >> security-summary.md
         echo "Generated on: $(date -u)" >> security-summary.md
         

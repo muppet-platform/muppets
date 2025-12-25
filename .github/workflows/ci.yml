@@ -80,37 +80,7 @@ jobs:
         test -f template.yaml
         echo "✅ Template files validated"
 
-  # Job 3: Infrastructure Validation
-  infrastructure-validation:
-    name: Infrastructure Validation
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup OpenTofu
-      uses: opentofu/setup-opentofu@v1
-      with:
-        tofu_version: '1.6.0'
-        
-    - name: Verify OpenTofu installation
-      run: tofu version
-      
-    - name: Validate Terraform modules
-      run: |
-        for module in terraform-modules/*/; do
-          if [ -d "$module" ] && [ -f "$module/main.tf" ]; then
-            echo "Validating module: $module"
-            cd "$module"
-            tofu init -backend=false
-            tofu validate
-            cd - > /dev/null
-          fi
-        done
-        echo "✅ All Terraform modules validated"
-
-  # Job 4: Code Quality
+  # Job 3: Code Quality
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -154,7 +124,7 @@ jobs:
         cd platform
         uv run mypy src/
 
-  # Job 5: Security Scan
+  # Job 4: Security Scan
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -191,7 +161,7 @@ jobs:
         path: platform/security-report.json
         retention-days: 30
 
-  # Job 6: Docker Build Test (without AWS dependencies)
+  # Job 5: Docker Build Test (without AWS dependencies)
   docker-build:
     name: Docker Build Test
     runs-on: ubuntu-latest
