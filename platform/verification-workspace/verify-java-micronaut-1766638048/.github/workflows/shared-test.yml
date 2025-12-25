@@ -1,0 +1,127 @@
+name: Shared Java Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java_distribution:
+        description: 'Java distribution to use'
+        required: false
+        type: string
+        default: 'corretto'
+      gradle_cache_key_suffix:
+        description: 'Additional suffix for Gradle cache key'
+        required: false
+        type: string
+        default: ''
+      coverage_threshold:
+        description: 'Minimum test coverage percentage'
+        required: false
+        type: number
+        default: 70
+    outputs:
+      test_results_artifact:
+        description: 'Name of the test results artifact'
+        value: ${{ jobs.test.outputs.test_results_artifact }}
+      coverage_artifact:
+        description: 'Name of the coverage report artifact'
+        value: ${{ jobs.test.outputs.coverage_artifact }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      test_results_artifact: test-results-${{ github.run_id }}
+      coverage_artifact: coverage-report-${{ github.run_id }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Amazon Corretto JDK ${{ inputs.java_version }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java_version }}
+        distribution: ${{ inputs.java_distribution }}
+        
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}${{ inputs.gradle_cache_key_suffix }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+      
+    - name: Validate Java version (LTS enforcement)
+      run: |
+        JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        echo "Detected Java version: $JAVA_VERSION"
+        if [ "$JAVA_VERSION" -ne 21 ]; then
+          echo "❌ Java 21 LTS required, found Java $JAVA_VERSION"
+          if [ "$JAVA_VERSION" -gt 21 ]; then
+            echo "⚠️  Java $JAVA_VERSION is newer than Java 21 LTS and may cause compatibility issues"
+            echo "   Non-LTS Java versions are not supported in production environments"
+          fi
+          exit 1
+        fi
+        java -version 2>&1 | grep -q "21.*LTS" && echo "✅ Java 21 LTS detected" || echo "❌ Non-LTS Java version detected"
+      
+    - name: Run tests
+      run: ./gradlew test --continue
+      
+    - name: Generate test report
+      run: ./gradlew jacocoTestReport
+      
+    - name: Check test coverage
+      run: |
+        ./gradlew jacocoTestCoverageVerification
+        COVERAGE=$(./gradlew jacocoTestReport | grep -o 'Total.*[0-9]\+%' | grep -o '[0-9]\+' || echo "0")
+        echo "Test coverage: ${COVERAGE}%"
+        if [ "$COVERAGE" -lt "${{ inputs.coverage_threshold }}" ]; then
+          echo "❌ Test coverage ${COVERAGE}% is below required threshold ${{ inputs.coverage_threshold }}%"
+          exit 1
+        fi
+        echo "✅ Test coverage ${COVERAGE}% meets required threshold ${{ inputs.coverage_threshold }}%"
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: ${{ steps.test.outputs.test_results_artifact }}
+        path: build/reports/tests/test/
+        retention-days: 7
+        
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ steps.test.outputs.coverage_artifact }}
+        path: build/reports/jacoco/test/html/
+        retention-days: 7
+
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'build/reports/jacoco/test/html/index.html';
+          if (fs.existsSync(path)) {
+            const coverage = fs.readFileSync(path, 'utf8').match(/Total.*?(\d+)%/);
+            if (coverage) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 📊 Test Coverage Report\n\n**Coverage: ${coverage[1]}%**\n\n${coverage[1] >= ${{ inputs.coverage_threshold }} ? '✅' : '❌'} ${coverage[1] >= ${{ inputs.coverage_threshold }} ? 'Meets' : 'Below'} required threshold (${{ inputs.coverage_threshold }}%)`
+              });
+            }
+          }

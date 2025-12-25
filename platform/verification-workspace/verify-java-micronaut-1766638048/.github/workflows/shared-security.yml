@@ -1,0 +1,204 @@
+name: Shared Java Security Workflow
+
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java_distribution:
+        description: 'Java distribution to use'
+        required: false
+        type: string
+        default: 'corretto'
+      gradle_cache_key_suffix:
+        description: 'Additional suffix for Gradle cache key'
+        required: false
+        type: string
+        default: ''
+      fail_on_high_severity:
+        description: 'Fail the build on high severity vulnerabilities'
+        required: false
+        type: boolean
+        default: true
+      dependency_check_enabled:
+        description: 'Enable OWASP dependency check'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      security_report_artifact:
+        description: 'Name of the security report artifact'
+        value: ${{ jobs.security-scan.outputs.security_report_artifact }}
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    outputs:
+      security_report_artifact: security-report-${{ github.run_id }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Amazon Corretto JDK ${{ inputs.java_version }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java_version }}
+        distribution: ${{ inputs.java_distribution }}
+        
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}${{ inputs.gradle_cache_key_suffix }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+      
+    - name: OWASP Dependency Check
+      if: inputs.dependency_check_enabled
+      run: |
+        echo "Running OWASP Dependency Check..."
+        ./gradlew dependencyCheckAnalyze --info
+        
+        # Check if vulnerabilities were found
+        if [ -f "build/reports/dependency-check-report.html" ]; then
+          echo "✅ Dependency check completed"
+          
+          # Extract vulnerability count
+          HIGH_VULNS=$(grep -o 'High.*[0-9]\+' build/reports/dependency-check-report.html | grep -o '[0-9]\+' || echo "0")
+          CRITICAL_VULNS=$(grep -o 'Critical.*[0-9]\+' build/reports/dependency-check-report.html | grep -o '[0-9]\+' || echo "0")
+          
+          echo "Critical vulnerabilities: $CRITICAL_VULNS"
+          echo "High vulnerabilities: $HIGH_VULNS"
+          
+          if [ "${{ inputs.fail_on_high_severity }}" = "true" ] && [ "$((CRITICAL_VULNS + HIGH_VULNS))" -gt 0 ]; then
+            echo "❌ Found $((CRITICAL_VULNS + HIGH_VULNS)) high/critical severity vulnerabilities"
+            exit 1
+          fi
+        else
+          echo "⚠️ Dependency check report not found"
+        fi
+      continue-on-error: ${{ !inputs.fail_on_high_severity }}
+      
+    - name: SpotBugs Analysis
+      run: |
+        echo "Running SpotBugs static analysis..."
+        ./gradlew spotbugsMain --info
+        
+        if [ -f "build/reports/spotbugs/main.html" ]; then
+          echo "✅ SpotBugs analysis completed"
+          
+          # Check for bugs
+          BUG_COUNT=$(grep -o 'Total.*[0-9]\+ bugs' build/reports/spotbugs/main.html | grep -o '[0-9]\+' || echo "0")
+          echo "SpotBugs found $BUG_COUNT potential issues"
+          
+          if [ "$BUG_COUNT" -gt 0 ]; then
+            echo "⚠️ SpotBugs found $BUG_COUNT potential issues - review the report"
+          fi
+        else
+          echo "⚠️ SpotBugs report not found"
+        fi
+      continue-on-error: true
+      
+    - name: PMD Analysis
+      run: |
+        echo "Running PMD static analysis..."
+        ./gradlew pmdMain --info
+        
+        if [ -f "build/reports/pmd/main.html" ]; then
+          echo "✅ PMD analysis completed"
+          
+          # Check for violations
+          VIOLATION_COUNT=$(grep -o '[0-9]\+ violations' build/reports/pmd/main.html | grep -o '[0-9]\+' || echo "0")
+          echo "PMD found $VIOLATION_COUNT code violations"
+          
+          if [ "$VIOLATION_COUNT" -gt 0 ]; then
+            echo "⚠️ PMD found $VIOLATION_COUNT code violations - review the report"
+          fi
+        else
+          echo "⚠️ PMD report not found"
+        fi
+      continue-on-error: true
+      
+    - name: Checkstyle Analysis
+      run: |
+        echo "Running Checkstyle analysis..."
+        ./gradlew checkstyleMain --info
+        
+        if [ -f "build/reports/checkstyle/main.html" ]; then
+          echo "✅ Checkstyle analysis completed"
+          
+          # Check for violations
+          VIOLATION_COUNT=$(grep -o '[0-9]\+ errors' build/reports/checkstyle/main.html | grep -o '[0-9]\+' || echo "0")
+          echo "Checkstyle found $VIOLATION_COUNT style violations"
+          
+          if [ "$VIOLATION_COUNT" -gt 50 ]; then
+            echo "⚠️ Checkstyle found $VIOLATION_COUNT style violations - consider fixing major issues"
+          fi
+        else
+          echo "⚠️ Checkstyle report not found"
+        fi
+      continue-on-error: true
+      
+    - name: Secrets Scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+      continue-on-error: true
+      
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: ${{ steps.security-scan.outputs.security_report_artifact }}
+        path: |
+          build/reports/dependency-check-report.html
+          build/reports/spotbugs/
+          build/reports/pmd/
+          build/reports/checkstyle/
+        retention-days: 30
+        
+    - name: Security Summary
+      if: always()
+      run: |
+        echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Dependency Check Summary
+        if [ -f "build/reports/dependency-check-report.html" ]; then
+          HIGH_VULNS=$(grep -o 'High.*[0-9]\+' build/reports/dependency-check-report.html | grep -o '[0-9]\+' || echo "0")
+          CRITICAL_VULNS=$(grep -o 'Critical.*[0-9]\+' build/reports/dependency-check-report.html | grep -o '[0-9]\+' || echo "0")
+          echo "- **OWASP Dependency Check**: $CRITICAL_VULNS critical, $HIGH_VULNS high severity vulnerabilities" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # SpotBugs Summary
+        if [ -f "build/reports/spotbugs/main.html" ]; then
+          BUG_COUNT=$(grep -o 'Total.*[0-9]\+ bugs' build/reports/spotbugs/main.html | grep -o '[0-9]\+' || echo "0")
+          echo "- **SpotBugs**: $BUG_COUNT potential issues found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # PMD Summary
+        if [ -f "build/reports/pmd/main.html" ]; then
+          VIOLATION_COUNT=$(grep -o '[0-9]\+ violations' build/reports/pmd/main.html | grep -o '[0-9]\+' || echo "0")
+          echo "- **PMD**: $VIOLATION_COUNT code violations found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Checkstyle Summary
+        if [ -f "build/reports/checkstyle/main.html" ]; then
+          VIOLATION_COUNT=$(grep -o '[0-9]\+ errors' build/reports/checkstyle/main.html | grep -o '[0-9]\+' || echo "0")
+          echo "- **Checkstyle**: $VIOLATION_COUNT style violations found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📋 Detailed reports are available in the security-report artifact" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,75 @@
+plugins {
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'io.micronaut.application' version '4.0.4'
+    id 'io.micronaut.test-resources' version '4.0.4'
+}
+
+version = "1.0.0"
+group = "com.muppetplatform.verify-java-micronaut-1766583366"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Micronaut Core
+    implementation 'io.micronaut:micronaut-http-client'
+    implementation 'io.micronaut:micronaut-http-server-netty'
+    implementation 'io.micronaut:micronaut-jackson-databind'
+    implementation 'io.micronaut.validation:micronaut-validation'
+    
+    // YAML Configuration
+    runtimeOnly 'org.yaml:snakeyaml'
+    
+    // Metrics and Monitoring
+    implementation 'io.micronaut.micrometer:micronaut-micrometer-core'
+    implementation 'io.micronaut.micrometer:micronaut-micrometer-registry-cloudwatch'
+    
+    // Logging
+    implementation 'ch.qos.logback:logback-classic'
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    implementation 'ca.pjer:logback-awslogs-appender:1.6.0'
+    
+    // AWS SDK
+    implementation 'software.amazon.awssdk:cloudwatch:2.21.29'
+    
+    // Testing
+    testImplementation 'io.micronaut:micronaut-http-client'
+    testImplementation 'io.micronaut.test:micronaut-test-junit5'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine'
+    testImplementation 'org.mockito:mockito-core'
+    
+    // Annotation Processing
+    annotationProcessor 'io.micronaut:micronaut-http-validation'
+    annotationProcessor 'io.micronaut.validation:micronaut-validation-processor'
+}
+
+application {
+    mainClass = 'com.muppetplatform.verify-java-micronaut-1766583366.Application'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+micronaut {
+    runtime 'netty'
+    testRuntime 'junit5'
+    processing {
+        incremental true
+        annotations 'com.muppetplatform.verify-java-micronaut-1766583366.*'
+    }
+}
+
+tasks.named("test") {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+tasks.named("shadowJar") {
+    mergeServiceFiles()
+}

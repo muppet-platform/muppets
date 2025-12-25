@@ -1,0 +1,598 @@
+name: Terratest Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run integration tests nightly
+    - cron: '0 3 * * *'
+
+env:
+  TOFU_VERSION: "1.6.0"
+  GO_VERSION: "1.21"
+  AWS_DEFAULT_REGION: us-east-1
+
+jobs:
+  setup-terratest:
+    name: Setup Terratest Environment
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: ${{ env.TOFU_VERSION }}
+        
+    - name: Initialize terratest directory
+      run: |
+        cd terraform-modules/tests
+        
+        # Initialize Go module if it doesn't exist
+        if [ ! -f "go.mod" ]; then
+          go mod init terraform-modules-tests
+        fi
+        
+        # Install terratest dependencies
+        go get github.com/gruntwork-io/terratest/modules/terraform
+        go get github.com/gruntwork-io/terratest/modules/aws
+        go get github.com/gruntwork-io/terratest/modules/random
+        go get github.com/stretchr/testify/assert
+        go get github.com/stretchr/testify/require
+        
+        # Create basic test structure if it doesn't exist
+        mkdir -p examples
+        mkdir -p test
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('terraform-modules/tests/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+  test-ecr-module:
+    name: Test ECR Module
+    runs-on: ubuntu-latest
+    needs: setup-terratest
+    
+    services:
+      localstack:
+        image: localstack/localstack:3.0
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: ecr
+          DEBUG: 1
+          DATA_DIR: /tmp/localstack/data
+          DOCKER_HOST: unix:///var/run/docker.sock
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: ${{ env.TOFU_VERSION }}
+        
+    - name: Wait for LocalStack
+      run: |
+        timeout 60 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "running"; do sleep 2; done'
+        
+    - name: Create ECR test
+      run: |
+        cd terraform-modules/tests
+        
+        # Create test example
+        mkdir -p examples/ecr
+        cat > examples/ecr/main.tf << 'EOF'
+        terraform {
+          required_providers {
+            aws = {
+              source  = "hashicorp/aws"
+              version = "~> 5.0"
+            }
+          }
+        }
+        
+        provider "aws" {
+          region                      = "us-east-1"
+          access_key                  = "test"
+          secret_key                  = "test"
+          skip_credentials_validation = true
+          skip_metadata_api_check     = true
+          skip_requesting_account_id  = true
+          
+          endpoints {
+            ecr = "http://localhost:4566"
+          }
+        }
+        
+        module "ecr" {
+          source = "../../ecr"
+          
+          repository_name = var.repository_name
+        }
+        
+        variable "repository_name" {
+          description = "Name of the ECR repository"
+          type        = string
+        }
+        
+        output "repository_url" {
+          value = module.ecr.repository_url
+        }
+        
+        output "repository_arn" {
+          value = module.ecr.repository_arn
+        }
+        EOF
+        
+        # Create Go test
+        cat > test/ecr_test.go << 'EOF'
+        package test
+        
+        import (
+          "testing"
+          "github.com/gruntwork-io/terratest/modules/terraform"
+          "github.com/gruntwork-io/terratest/modules/random"
+          "github.com/stretchr/testify/assert"
+        )
+        
+        func TestECRModule(t *testing.T) {
+          t.Parallel()
+          
+          // Generate a random repository name
+          repositoryName := "test-repo-" + random.UniqueId()
+          
+          terraformOptions := &terraform.Options{
+            TerraformDir: "../examples/ecr",
+            TerraformBinary: "tofu",
+            
+            Vars: map[string]interface{}{
+              "repository_name": repositoryName,
+            },
+            
+            EnvVars: map[string]string{
+              "AWS_ENDPOINT_URL": "http://localhost:4566",
+              "AWS_ACCESS_KEY_ID": "test",
+              "AWS_SECRET_ACCESS_KEY": "test",
+              "AWS_DEFAULT_REGION": "us-east-1",
+            },
+          }
+          
+          defer terraform.Destroy(t, terraformOptions)
+          
+          terraform.InitAndApply(t, terraformOptions)
+          
+          // Validate outputs
+          repositoryUrl := terraform.Output(t, terraformOptions, "repository_url")
+          repositoryArn := terraform.Output(t, terraformOptions, "repository_arn")
+          
+          assert.Contains(t, repositoryUrl, repositoryName)
+          assert.Contains(t, repositoryArn, repositoryName)
+        }
+        EOF
+        
+    - name: Run ECR module test
+      env:
+        AWS_ENDPOINT_URL: http://localhost:4566
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        AWS_DEFAULT_REGION: us-east-1
+      run: |
+        cd terraform-modules/tests
+        go mod tidy
+        go test -v -timeout 30m ./test/ecr_test.go
+
+  test-networking-module:
+    name: Test Networking Module
+    runs-on: ubuntu-latest
+    needs: setup-terratest
+    
+    services:
+      localstack:
+        image: localstack/localstack:3.0
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: ec2
+          DEBUG: 1
+          DATA_DIR: /tmp/localstack/data
+          DOCKER_HOST: unix:///var/run/docker.sock
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: ${{ env.TOFU_VERSION }}
+        
+    - name: Wait for LocalStack
+      run: |
+        timeout 60 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "running"; do sleep 2; done'
+        
+    - name: Create Networking test
+      run: |
+        cd terraform-modules/tests
+        
+        # Create test example
+        mkdir -p examples/networking
+        cat > examples/networking/main.tf << 'EOF'
+        terraform {
+          required_providers {
+            aws = {
+              source  = "hashicorp/aws"
+              version = "~> 5.0"
+            }
+          }
+        }
+        
+        provider "aws" {
+          region                      = "us-east-1"
+          access_key                  = "test"
+          secret_key                  = "test"
+          skip_credentials_validation = true
+          skip_metadata_api_check     = true
+          skip_requesting_account_id  = true
+          
+          endpoints {
+            ec2 = "http://localhost:4566"
+          }
+        }
+        
+        module "networking" {
+          source = "../../networking"
+          
+          vpc_name = var.vpc_name
+          environment = var.environment
+        }
+        
+        variable "vpc_name" {
+          description = "Name of the VPC"
+          type        = string
+        }
+        
+        variable "environment" {
+          description = "Environment name"
+          type        = string
+        }
+        
+        output "vpc_id" {
+          value = module.networking.vpc_id
+        }
+        
+        output "private_subnet_ids" {
+          value = module.networking.private_subnet_ids
+        }
+        
+        output "public_subnet_ids" {
+          value = module.networking.public_subnet_ids
+        }
+        EOF
+        
+        # Create Go test
+        cat > test/networking_test.go << 'EOF'
+        package test
+        
+        import (
+          "testing"
+          "github.com/gruntwork-io/terratest/modules/terraform"
+          "github.com/gruntwork-io/terratest/modules/random"
+          "github.com/stretchr/testify/assert"
+        )
+        
+        func TestNetworkingModule(t *testing.T) {
+          t.Parallel()
+          
+          // Generate random names
+          vpcName := "test-vpc-" + random.UniqueId()
+          environment := "test"
+          
+          terraformOptions := &terraform.Options{
+            TerraformDir: "../examples/networking",
+            TerraformBinary: "tofu",
+            
+            Vars: map[string]interface{}{
+              "vpc_name": vpcName,
+              "environment": environment,
+            },
+            
+            EnvVars: map[string]string{
+              "AWS_ENDPOINT_URL": "http://localhost:4566",
+              "AWS_ACCESS_KEY_ID": "test",
+              "AWS_SECRET_ACCESS_KEY": "test",
+              "AWS_DEFAULT_REGION": "us-east-1",
+            },
+          }
+          
+          defer terraform.Destroy(t, terraformOptions)
+          
+          terraform.InitAndApply(t, terraformOptions)
+          
+          // Validate outputs
+          vpcId := terraform.Output(t, terraformOptions, "vpc_id")
+          privateSubnetIds := terraform.OutputList(t, terraformOptions, "private_subnet_ids")
+          publicSubnetIds := terraform.OutputList(t, terraformOptions, "public_subnet_ids")
+          
+          assert.NotEmpty(t, vpcId)
+          assert.NotEmpty(t, privateSubnetIds)
+          assert.NotEmpty(t, publicSubnetIds)
+          assert.True(t, len(privateSubnetIds) >= 2, "Should have at least 2 private subnets")
+          assert.True(t, len(publicSubnetIds) >= 2, "Should have at least 2 public subnets")
+        }
+        EOF
+        
+    - name: Run Networking module test
+      env:
+        AWS_ENDPOINT_URL: http://localhost:4566
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        AWS_DEFAULT_REGION: us-east-1
+      run: |
+        cd terraform-modules/tests
+        go mod tidy
+        go test -v -timeout 30m ./test/networking_test.go
+
+  test-integration:
+    name: Test Module Integration
+    runs-on: ubuntu-latest
+    needs: [test-ecr-module, test-networking-module]
+    
+    services:
+      localstack:
+        image: localstack/localstack:3.0
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,ecs,logs,ssm,ecr,elbv2,ec2,iam
+          DEBUG: 1
+          DATA_DIR: /tmp/localstack/data
+          DOCKER_HOST: unix:///var/run/docker.sock
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: ${{ env.TOFU_VERSION }}
+        
+    - name: Wait for LocalStack
+      run: |
+        timeout 60 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "running"; do sleep 2; done'
+        
+    - name: Create integration test
+      run: |
+        cd terraform-modules/tests
+        
+        # Create integration test example
+        mkdir -p examples/integration
+        cat > examples/integration/main.tf << 'EOF'
+        terraform {
+          required_providers {
+            aws = {
+              source  = "hashicorp/aws"
+              version = "~> 5.0"
+            }
+          }
+        }
+        
+        provider "aws" {
+          region                      = "us-east-1"
+          access_key                  = "test"
+          secret_key                  = "test"
+          skip_credentials_validation = true
+          skip_metadata_api_check     = true
+          skip_requesting_account_id  = true
+          
+          endpoints {
+            s3       = "http://localhost:4566"
+            ecs      = "http://localhost:4566"
+            logs     = "http://localhost:4566"
+            ssm      = "http://localhost:4566"
+            ecr      = "http://localhost:4566"
+            elbv2    = "http://localhost:4566"
+            ec2      = "http://localhost:4566"
+            iam      = "http://localhost:4566"
+          }
+        }
+        
+        # Test full integration
+        module "networking" {
+          source = "../../networking"
+          
+          vpc_name = var.vpc_name
+          environment = var.environment
+        }
+        
+        module "ecr" {
+          source = "../../ecr"
+          
+          repository_name = var.repository_name
+        }
+        
+        module "iam" {
+          source = "../../iam"
+          
+          service_name = var.service_name
+        }
+        
+        variable "vpc_name" {
+          description = "Name of the VPC"
+          type        = string
+        }
+        
+        variable "environment" {
+          description = "Environment name"
+          type        = string
+        }
+        
+        variable "repository_name" {
+          description = "Name of the ECR repository"
+          type        = string
+        }
+        
+        variable "service_name" {
+          description = "Name of the service"
+          type        = string
+        }
+        
+        output "vpc_id" {
+          value = module.networking.vpc_id
+        }
+        
+        output "repository_url" {
+          value = module.ecr.repository_url
+        }
+        
+        output "task_role_arn" {
+          value = module.iam.task_role_arn
+        }
+        EOF
+        
+        # Create integration test
+        cat > test/integration_test.go << 'EOF'
+        package test
+        
+        import (
+          "testing"
+          "github.com/gruntwork-io/terratest/modules/terraform"
+          "github.com/gruntwork-io/terratest/modules/random"
+          "github.com/stretchr/testify/assert"
+        )
+        
+        func TestModuleIntegration(t *testing.T) {
+          t.Parallel()
+          
+          // Generate random names
+          uniqueId := random.UniqueId()
+          vpcName := "test-vpc-" + uniqueId
+          repositoryName := "test-repo-" + uniqueId
+          serviceName := "test-service-" + uniqueId
+          
+          terraformOptions := &terraform.Options{
+            TerraformDir: "../examples/integration",
+            TerraformBinary: "tofu",
+            
+            Vars: map[string]interface{}{
+              "vpc_name": vpcName,
+              "environment": "test",
+              "repository_name": repositoryName,
+              "service_name": serviceName,
+            },
+            
+            EnvVars: map[string]string{
+              "AWS_ENDPOINT_URL": "http://localhost:4566",
+              "AWS_ACCESS_KEY_ID": "test",
+              "AWS_SECRET_ACCESS_KEY": "test",
+              "AWS_DEFAULT_REGION": "us-east-1",
+            },
+          }
+          
+          defer terraform.Destroy(t, terraformOptions)
+          
+          terraform.InitAndApply(t, terraformOptions)
+          
+          // Validate integration outputs
+          vpcId := terraform.Output(t, terraformOptions, "vpc_id")
+          repositoryUrl := terraform.Output(t, terraformOptions, "repository_url")
+          taskRoleArn := terraform.Output(t, terraformOptions, "task_role_arn")
+          
+          assert.NotEmpty(t, vpcId)
+          assert.Contains(t, repositoryUrl, repositoryName)
+          assert.Contains(t, taskRoleArn, serviceName)
+        }
+        EOF
+        
+    - name: Run integration test
+      env:
+        AWS_ENDPOINT_URL: http://localhost:4566
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        AWS_DEFAULT_REGION: us-east-1
+      run: |
+        cd terraform-modules/tests
+        go mod tidy
+        go test -v -timeout 45m ./test/integration_test.go
+
+  generate-test-report:
+    name: Generate Test Report
+    runs-on: ubuntu-latest
+    needs: [test-ecr-module, test-networking-module, test-integration]
+    if: always()
+    
+    steps:
+    - name: Generate test summary
+      run: |
+        echo "## Terratest Results" > test-report.md
+        echo "" >> test-report.md
+        echo "| Test Suite | Status |" >> test-report.md
+        echo "|------------|--------|" >> test-report.md
+        
+        if [ "${{ needs.test-ecr-module.result }}" = "success" ]; then
+          echo "| ECR Module | ✅ Passed |" >> test-report.md
+        else
+          echo "| ECR Module | ❌ Failed |" >> test-report.md
+        fi
+        
+        if [ "${{ needs.test-networking-module.result }}" = "success" ]; then
+          echo "| Networking Module | ✅ Passed |" >> test-report.md
+        else
+          echo "| Networking Module | ❌ Failed |" >> test-report.md
+        fi
+        
+        if [ "${{ needs.test-integration.result }}" = "success" ]; then
+          echo "| Integration Test | ✅ Passed |" >> test-report.md
+        else
+          echo "| Integration Test | ❌ Failed |" >> test-report.md
+        fi
+        
+        echo "" >> test-report.md
+        echo "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> test-report.md
+        
+        cat test-report.md
+        
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: terratest-report
+        path: test-report.md
+        retention-days: 30

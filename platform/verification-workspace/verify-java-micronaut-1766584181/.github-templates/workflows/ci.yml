@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    uses: muppet-platform/templates/.github/workflows/shared-test.yml@{{workflow_version}}
+    with:
+      java_version: "21"
+      java_distribution: "corretto"
+      coverage_threshold: 70
+      gradle_cache_key_suffix: "-verify-java-micronaut-1766584181"
+    secrets: inherit
+
+  security:
+    uses: muppet-platform/templates/.github/workflows/shared-security.yml@{{workflow_version}}
+    with:
+      java_version: "21"
+      java_distribution: "corretto"
+      fail_on_high_severity: true
+      dependency_check_enabled: true
+      gradle_cache_key_suffix: "-verify-java-micronaut-1766584181"
+    secrets: inherit
+
+  build:
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main'
+    uses: muppet-platform/templates/.github/workflows/shared-build.yml@{{workflow_version}}
+    with:
+      java_version: "21"
+      java_distribution: "corretto"
+      ecr_repository: "verify-java-micronaut-1766584181"
+      aws_region: "us-west-2"
+      gradle_cache_key_suffix: "-verify-java-micronaut-1766584181"
+    secrets: inherit

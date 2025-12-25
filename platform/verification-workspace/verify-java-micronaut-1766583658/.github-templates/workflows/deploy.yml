@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      auto_approve:
+        description: 'Auto-approve deployment'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy-staging:
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    uses: muppet-platform/templates/.github/workflows/shared-deploy.yml@{{workflow_version}}
+    with:
+      environment: ${{ github.event.inputs.environment || 'staging' }}
+      muppet_name: "verify-java-micronaut-1766583658"
+      aws_region: "us-west-2"
+      image_uri: "${{ needs.get-image.outputs.image_uri }}"
+      opentofu_version: "1.6.0"
+      terraform_dir: "./terraform"
+      auto_approve: ${{ github.event.inputs.auto_approve || false }}
+    secrets: inherit
+
+  get-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.get-image.outputs.image_uri }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: "us-west-2"
+      
+      - name: Get latest image URI
+        id: get-image
+        run: |
+          # Get the latest image URI from ECR
+          IMAGE_URI=$(aws ecr describe-images \
+            --repository-name "verify-java-micronaut-1766583658" \
+            --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
+            --output text)
+          
+          if [ "$IMAGE_URI" = "None" ] || [ -z "$IMAGE_URI" ]; then
+            echo "❌ No images found in ECR repository verify-java-micronaut-1766583658"
+            exit 1
+          fi
+          
+          REGISTRY_URI=$(aws ecr describe-registry --query 'registryId' --output text)
+          FULL_IMAGE_URI="${REGISTRY_URI}.dkr.ecr.us-west-2.amazonaws.com/verify-java-micronaut-1766583658:${IMAGE_URI}"
+          
+          echo "image_uri=$FULL_IMAGE_URI" >> $GITHUB_OUTPUT
+          echo "✅ Using image: $FULL_IMAGE_URI"

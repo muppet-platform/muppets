@@ -1,0 +1,58 @@
+# Steering Documentation Configuration
+# Configuration for centralized steering documentation management
+
+shared_docs:
+  enabled: true
+  auto_distribute: true
+  version_control: true
+  
+  documents:
+    - name: "http-responses"
+      file: "shared/http-responses.md"
+      description: "HTTP status code standards and API response formats"
+      required: true
+    
+    - name: "test-coverage"
+      file: "shared/test-coverage.md"
+      description: "Minimum 70% test coverage requirements"
+      required: true
+    
+    - name: "security"
+      file: "shared/security.md"
+      description: "Authentication, authorization, and security best practices"
+      required: true
+    
+    - name: "logging"
+      file: "shared/logging.md"
+      description: "Structured logging standards and log levels"
+      required: true
+    
+    - name: "performance"
+      file: "shared/performance.md"
+      description: "Response time targets and optimization practices"
+      required: true
+
+distribution:
+  on_muppet_creation: true
+  on_update: "manual"  # or "automatic"
+  target_directory: ".kiro/steering/shared/"
+
+template_specific:
+  enabled: true
+  directory: "templates/"
+  allow_overrides: false
+
+versioning:
+  enabled: true
+  strategy: "semantic"
+  changelog: true
+
+mcp_tools:
+  update_shared_steering: true
+  list_steering_docs: true
+  get_steering_doc: true
+
+github:
+  repository: "steering-docs"
+  organization: "muppet-platform"
+  visibility: "private"

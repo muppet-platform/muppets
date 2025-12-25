@@ -1,0 +1,53 @@
+# Terraform Modules Configuration
+# Configuration for shared infrastructure modules
+
+modules:
+  ecr:
+    registry_name: "muppet-platform"
+    enable_scanning: true
+    lifecycle_policy: "retain-10-images"
+    encryption: "AES256"
+  
+  fargate:
+    cluster_name: "muppet-platform-cluster"
+    capacity_providers: ["FARGATE", "FARGATE_SPOT"]
+    container_insights: true
+  
+  networking:
+    vpc_cidr: "10.0.0.0/16"
+    availability_zones: ["us-west-2a", "us-west-2b"]
+    enable_nat_gateway: true
+    single_nat_gateway: false  # High availability
+  
+  monitoring:
+    cloudwatch:
+      log_retention_days: 7
+      metrics_enabled: true
+      alarms_enabled: true
+    
+    cost_optimization:
+      log_sampling: true
+      metric_sampling_rate: 0.1
+  
+  iam:
+    platform_role_name: "muppet-platform-service-role"
+    muppet_role_prefix: "muppet-"
+    enable_cross_account: false
+
+aws:
+  region: "us-west-2"
+  
+  tags:
+    Project: "muppet-platform"
+    ManagedBy: "terraform"
+    Environment: "shared"
+
+versioning:
+  strategy: "semantic"
+  auto_update: false
+  compatibility_check: true
+
+testing:
+  terratest: true
+  validation: true
+  plan_check: true

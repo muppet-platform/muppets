@@ -1,0 +1,45 @@
+name: java-micronaut
+version: "1.0.0"
+description: "Java Micronaut template with Amazon Corretto, Gradle, and Docker support"
+language: java
+framework: micronaut
+port: 3000
+
+metadata:
+  java_version: "21"
+  java_distribution: "amazon-corretto"
+  micronaut_version: "4.0.4"
+  gradle_version: "8.5"
+  
+terraform_modules:
+  - fargate-service
+  - monitoring
+  - networking
+  - ecr
+
+required_variables:
+  - muppet_name
+  - aws_region
+  - environment
+
+supported_features:
+  - health_checks
+  - metrics
+  - logging
+  - docker
+  - gradle_build
+  - unit_tests
+  - local_development
+
+template_files:
+  - src/
+  - Dockerfile.template
+  - build.gradle.template
+  - gradle.properties.template
+  - settings.gradle.template
+  - terraform/
+  - scripts/
+  - .github/workflows/
+  - .kiro/
+  - README.template.md
+  - docker-compose.local.yml.template

@@ -1,0 +1,48 @@
+# Muppet Platform - Main Configuration
+# This file contains the overall project configuration and references to component configs
+
+project:
+  name: "muppet-platform"
+  version: "0.1.0"
+  description: "Internal developer platform for rapid backend application creation"
+
+# Component Configuration Files
+# Each component has its own detailed configuration file
+components:
+  platform:
+    config_file: "platform/config.yaml"
+    description: "Core platform service configuration"
+  
+  templates:
+    config_file: "templates/config.yaml"
+    description: "Template development and management configuration"
+  
+  terraform_modules:
+    config_file: "terraform-modules/config.yaml"
+    description: "Shared infrastructure modules configuration"
+  
+  steering_docs:
+    config_file: "steering-docs/config.yaml"
+    description: "Centralized steering documentation configuration"
+
+# Global Settings (shared across all components)
+global:
+  aws:
+    region: "us-west-2"
+  
+  github:
+    organization: "muppet-platform"
+  
+  project_tags:
+    Project: "muppet-platform"
+    ManagedBy: "platform"
+    Environment: "shared"
+
+# Development Environment
+development:
+  parallel_development: true
+  component_isolation: true
+  shared_dependencies:
+    - aws_region
+    - github_organization
+    - project_tags

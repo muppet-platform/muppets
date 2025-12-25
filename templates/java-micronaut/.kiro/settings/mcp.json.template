@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "muppet-platform": {
+      "command": "uv",
+      "args": ["run", "mcp-server"],
+      "cwd": "{{platform_path}}",
+      "env": {
+        "INTEGRATION_MODE": "real",
+        "LOG_LEVEL": "INFO"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "get_muppet_status",
+        "list_muppets",
+        "list_templates",
+        "get_muppet_logs"
+      ]
+    }
+  }
+}

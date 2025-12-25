@@ -1,0 +1,371 @@
+name: Template Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  JAVA_VERSION: "21"
+  JAVA_DISTRIBUTION: "corretto"
+
+jobs:
+  validate-template-structure:
+    name: Validate Template Structure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate template.yaml files
+      run: |
+        echo "Validating template.yaml files..."
+        for template_dir in templates/*/; do
+          if [ -d "$template_dir" ] && [ "$(basename "$template_dir")" != "tests" ] && [ "$(basename "$template_dir")" != "template-tools" ]; then
+            template_name=$(basename "$template_dir")
+            template_file="$template_dir/template.yaml"
+            
+            if [ ! -f "$template_file" ]; then
+              echo "❌ Missing template.yaml in $template_name"
+              exit 1
+            fi
+            
+            # Validate YAML syntax
+            python3 -c "
+            import yaml
+            import sys
+            try:
+                with open('$template_file', 'r') as f:
+                    yaml.safe_load(f)
+                print('✅ $template_name template.yaml is valid YAML')
+            except Exception as e:
+                print('❌ $template_name template.yaml is invalid: {}'.format(e))
+                sys.exit(1)
+            "
+            
+            # Check required fields
+            python3 -c "
+            import yaml
+            import sys
+            with open('$template_file', 'r') as f:
+                template = yaml.safe_load(f)
+            
+            required_fields = ['name', 'version', 'description', 'language', 'framework']
+            missing = [field for field in required_fields if field not in template]
+            
+            if missing:
+                print('❌ $template_name missing required fields: {}'.format(missing))
+                sys.exit(1)
+            else:
+                print('✅ $template_name has all required fields')
+            "
+          fi
+        done
+        
+    - name: Validate template directory structure
+      run: |
+        echo "Validating template directory structure..."
+        for template_dir in templates/*/; do
+          if [ -d "$template_dir" ] && [ "$(basename "$template_dir")" != "tests" ] && [ "$(basename "$template_dir")" != "template-tools" ]; then
+            template_name=$(basename "$template_dir")
+            echo "Checking $template_name structure..."
+            
+            # Check required directories and files
+            required_items=(
+              "src/"
+              "tests/"
+              "scripts/"
+              "terraform/"
+              "Dockerfile.template"
+              "README.template.md"
+            )
+            
+            for item in "${required_items[@]}"; do
+              if [ ! -e "$template_dir/$item" ]; then
+                echo "❌ Missing $item in $template_name"
+                exit 1
+              fi
+            done
+            
+            echo "✅ $template_name structure is valid"
+          fi
+        done
+
+  test-java-micronaut-template:
+    name: Test Java Micronaut Template
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Amazon Corretto JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: ${{ env.JAVA_DISTRIBUTION }}
+        
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Run quick template test
+      run: |
+        cd templates/java-micronaut/tests
+        chmod +x quick-test.sh
+        ./quick-test.sh
+        
+    - name: Run comprehensive template test
+      run: |
+        cd templates/java-micronaut/tests
+        chmod +x test-template.sh
+        ./test-template.sh
+        
+    - name: Test template parameter injection
+      run: |
+        cd templates/java-micronaut
+        
+        # Create test parameters
+        cat > test-params.yaml << EOF
+        muppet_name: test-muppet
+        port: 3000
+        java_version: 21
+        description: "Test muppet for CI"
+        EOF
+        
+        # Test parameter injection (simulate template engine)
+        echo "Testing parameter injection..."
+        
+        # Check that template files contain placeholders
+        if ! grep -r "{{muppet_name}}" src/ >/dev/null 2>&1; then
+          echo "❌ Template missing {{muppet_name}} placeholder"
+          exit 1
+        fi
+        
+        if ! grep -r "{{port}}" src/ >/dev/null 2>&1; then
+          echo "❌ Template missing {{port}} placeholder"
+          exit 1
+        fi
+        
+        echo "✅ Template parameter placeholders found"
+        
+    - name: Validate Java 21 LTS enforcement
+      run: |
+        cd templates/java-micronaut
+        
+        # Check build.gradle.template for Java 21
+        if ! grep -q "VERSION_21" build.gradle.template; then
+          echo "❌ build.gradle.template not configured for Java 21"
+          exit 1
+        fi
+        
+        # Check Dockerfile.template for Corretto 21
+        if ! grep -q "amazoncorretto:21" Dockerfile.template; then
+          echo "❌ Dockerfile.template not using Amazon Corretto 21"
+          exit 1
+        fi
+        
+        # Check GitHub Actions template for Java 21
+        if [ -f ".github/workflows/ci.yml" ]; then
+          if ! grep -q "java-version.*21" .github/workflows/ci.yml; then
+            echo "❌ CI workflow not configured for Java 21"
+            exit 1
+          fi
+        fi
+        
+        echo "✅ Java 21 LTS enforcement validated"
+
+  test-template-generation:
+    name: Test Template Generation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        
+    - name: Install template tools dependencies
+      run: |
+        cd templates/template-tools
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        fi
+        
+    - name: Test template discovery
+      run: |
+        cd templates
+        python3 -c "
+        import os
+        import yaml
+        
+        templates = []
+        for item in os.listdir('.'):
+            template_dir = os.path.join('.', item)
+            template_file = os.path.join(template_dir, 'template.yaml')
+            
+            if os.path.isdir(template_dir) and os.path.exists(template_file) and item not in ['tests', 'template-tools']:
+                with open(template_file, 'r') as f:
+                    template_config = yaml.safe_load(f)
+                    templates.append({
+                        'name': template_config.get('name', item),
+                        'language': template_config.get('language'),
+                        'framework': template_config.get('framework')
+                    })
+        
+        print(f'Discovered {len(templates)} templates:')
+        for template in templates:
+            print(f'  - {template[\"name\"]} ({template[\"language\"]} + {template[\"framework\"]})')
+        
+        if len(templates) == 0:
+            print('❌ No templates discovered')
+            exit(1)
+        else:
+            print('✅ Template discovery successful')
+        "
+        
+    - name: Test template metadata validation
+      run: |
+        cd templates
+        python3 -c "
+        import os
+        import yaml
+        import sys
+        
+        errors = []
+        
+        for item in os.listdir('.'):
+            template_dir = os.path.join('.', item)
+            template_file = os.path.join(template_dir, 'template.yaml')
+            
+            if os.path.isdir(template_dir) and os.path.exists(template_file) and item not in ['tests', 'template-tools']:
+                with open(template_file, 'r') as f:
+                    template_config = yaml.safe_load(f)
+                
+                # Validate required fields
+                required_fields = ['name', 'version', 'description', 'language', 'framework']
+                for field in required_fields:
+                    if field not in template_config:
+                        errors.append(f'{item}: Missing required field {field}')
+                
+                # Validate version format (semantic versioning)
+                version = template_config.get('version', '')
+                if not version or len(version.split('.')) != 3:
+                    errors.append(f'{item}: Invalid version format {version}')
+                
+                # Validate language is supported
+                supported_languages = ['java', 'python', 'javascript', 'go']
+                language = template_config.get('language', '').lower()
+                if language not in supported_languages:
+                    errors.append(f'{item}: Unsupported language {language}')
+        
+        if errors:
+            print('❌ Template validation errors:')
+            for error in errors:
+                print(f'  {error}')
+            sys.exit(1)
+        else:
+            print('✅ All template metadata is valid')
+        "
+
+  validate-opentofu-references:
+    name: Validate OpenTofu References
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup OpenTofu
+      uses: opentofu/setup-opentofu@v1
+      with:
+        tofu_version: 1.6.0
+        
+    - name: Validate OpenTofu configurations in templates
+      run: |
+        echo "Validating OpenTofu configurations in templates..."
+        
+        for template_dir in templates/*/; do
+          if [ -d "$template_dir" ] && [ "$(basename "$template_dir")" != "tests" ] && [ "$(basename "$template_dir")" != "template-tools" ]; then
+            template_name=$(basename "$template_dir")
+            terraform_dir="$template_dir/terraform"
+            
+            if [ -d "$terraform_dir" ]; then
+              echo "Validating $template_name OpenTofu configuration..."
+              cd "$terraform_dir"
+              
+              # Initialize and validate
+              tofu init -backend=false
+              tofu validate
+              
+              # Check for shared module references
+              if ! grep -r "terraform-modules" . >/dev/null 2>&1; then
+                echo "⚠️  $template_name doesn't reference shared terraform-modules"
+              else
+                echo "✅ $template_name references shared terraform-modules"
+              fi
+              
+              cd - > /dev/null
+            else
+              echo "❌ Missing terraform directory in $template_name"
+              exit 1
+            fi
+          fi
+        done
+
+  check-template-consistency:
+    name: Check Template Consistency
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check consistent file structure across templates
+      run: |
+        echo "Checking template consistency..."
+        
+        # Define expected common files
+        common_files=(
+          "template.yaml"
+          "README.template.md"
+          "Dockerfile.template"
+          "src/"
+          "tests/"
+          "scripts/"
+          "terraform/"
+        )
+        
+        templates_found=()
+        for template_dir in templates/*/; do
+          if [ -d "$template_dir" ] && [ "$(basename "$template_dir")" != "tests" ] && [ "$(basename "$template_dir")" != "template-tools" ]; then
+            templates_found+=($(basename "$template_dir"))
+          fi
+        done
+        
+        echo "Found templates: ${templates_found[*]}"
+        
+        inconsistencies=()
+        for template_name in "${templates_found[@]}"; do
+          template_dir="templates/$template_name"
+          
+          for common_file in "${common_files[@]}"; do
+            if [ ! -e "$template_dir/$common_file" ]; then
+              inconsistencies+=("$template_name missing $common_file")
+            fi
+          done
+        done
+        
+        if [ ${#inconsistencies[@]} -gt 0 ]; then
+          echo "❌ Template inconsistencies found:"
+          for inconsistency in "${inconsistencies[@]}"; do
+            echo "  $inconsistency"
+          done
+          exit 1
+        else
+          echo "✅ All templates have consistent structure"
+        fi

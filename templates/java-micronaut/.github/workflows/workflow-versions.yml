@@ -1,0 +1,230 @@
+name: Workflow Version Management
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - '.github/workflows/shared-*.yml'
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      custom_version:
+        description: 'Custom version (overrides version_type)'
+        required: false
+        type: string
+
+jobs:
+  version-workflows:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Get current version
+      id: current_version
+      run: |
+        # Get the latest version tag for this template
+        LATEST_TAG=$(git tag -l "java-micronaut-v*" --sort=-version:refname | head -1)
+        if [ -z "$LATEST_TAG" ]; then
+          CURRENT_VERSION="0.0.0"
+        else
+          CURRENT_VERSION=$(echo "$LATEST_TAG" | sed 's/java-micronaut-v//')
+        fi
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $CURRENT_VERSION"
+        
+    - name: Calculate new version
+      id: version
+      run: |
+        CURRENT="${{ steps.current_version.outputs.current_version }}"
+        
+        if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+          NEW_VERSION="${{ github.event.inputs.custom_version }}"
+        else
+          # Parse current version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          
+          case "${{ github.event.inputs.version_type || 'patch' }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+        fi
+        
+        VERSION_TAG="java-micronaut-v$NEW_VERSION"
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+        echo "Version tag: $VERSION_TAG"
+        
+    - name: Validate shared workflows
+      run: |
+        echo "Validating shared workflow files..."
+        
+        # Check that all shared workflow files exist
+        REQUIRED_WORKFLOWS=(
+          "shared-test.yml"
+          "shared-build.yml"
+          "shared-deploy.yml"
+          "shared-security.yml"
+        )
+        
+        for workflow in "${REQUIRED_WORKFLOWS[@]}"; do
+          if [ ! -f ".github/workflows/$workflow" ]; then
+            echo "❌ Required workflow file missing: $workflow"
+            exit 1
+          fi
+          echo "✅ Found: $workflow"
+        done
+        
+        # Validate workflow syntax (basic YAML validation)
+        for workflow_file in .github/workflows/shared-*.yml; do
+          if ! python3 -c "import yaml; yaml.safe_load(open('$workflow_file'))" 2>/dev/null; then
+            echo "❌ Invalid YAML syntax in: $workflow_file"
+            exit 1
+          fi
+          echo "✅ Valid YAML: $(basename $workflow_file)"
+        done
+        
+    - name: Generate workflow manifest
+      run: |
+        cat > .github/workflows/WORKFLOW_MANIFEST.json << EOF
+        {
+          "template_type": "java-micronaut",
+          "version": "${{ steps.version.outputs.new_version }}",
+          "version_tag": "${{ steps.version.outputs.version_tag }}",
+          "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "workflows": {
+            "shared-test": {
+              "file": "shared-test.yml",
+              "description": "Shared Java test workflow with coverage reporting",
+              "inputs": ["java_version", "java_distribution", "gradle_cache_key_suffix", "coverage_threshold"],
+              "outputs": ["test_results_artifact", "coverage_artifact"]
+            },
+            "shared-build": {
+              "file": "shared-build.yml", 
+              "description": "Shared Java build and Docker image creation workflow",
+              "inputs": ["java_version", "java_distribution", "ecr_repository", "aws_region", "build_args", "gradle_cache_key_suffix"],
+              "outputs": ["image_uri", "image_tag"]
+            },
+            "shared-deploy": {
+              "file": "shared-deploy.yml",
+              "description": "Shared deployment workflow using OpenTofu",
+              "inputs": ["environment", "muppet_name", "aws_region", "image_uri", "opentofu_version", "terraform_dir", "auto_approve"],
+              "outputs": ["deployment_url", "service_arn"]
+            },
+            "shared-security": {
+              "file": "shared-security.yml",
+              "description": "Shared security scanning workflow",
+              "inputs": ["java_version", "java_distribution", "gradle_cache_key_suffix", "fail_on_high_severity", "dependency_check_enabled"],
+              "outputs": ["security_report_artifact"]
+            }
+          },
+          "requirements": {
+            "java_version": "21",
+            "java_distribution": "corretto",
+            "gradle_version": "8.5+",
+            "opentofu_version": "1.6.0+"
+          },
+          "compatibility": {
+            "min_platform_version": "1.0.0",
+            "supported_environments": ["staging", "production"]
+          }
+        }
+        EOF
+        
+    - name: Create version tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Add the manifest file
+        git add .github/workflows/WORKFLOW_MANIFEST.json
+        git commit -m "Update workflow manifest for version ${{ steps.version.outputs.new_version }}"
+        
+        # Create and push the tag
+        git tag -a "${{ steps.version.outputs.version_tag }}" -m "Java Micronaut shared workflows version ${{ steps.version.outputs.new_version }}"
+        git push origin "${{ steps.version.outputs.version_tag }}"
+        git push origin main
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version_tag }}
+        release_name: Java Micronaut Workflows ${{ steps.version.outputs.new_version }}
+        body: |
+          ## Java Micronaut Shared Workflows ${{ steps.version.outputs.new_version }}
+          
+          This release contains shared GitHub Actions workflows for Java Micronaut muppets.
+          
+          ### Workflows Included
+          - **shared-test.yml**: Java testing with coverage reporting and LTS enforcement
+          - **shared-build.yml**: Java build and Docker image creation with ECR push
+          - **shared-deploy.yml**: OpenTofu-based deployment to AWS Fargate
+          - **shared-security.yml**: Security scanning with OWASP, SpotBugs, PMD, and Checkstyle
+          
+          ### Usage
+          Reference these workflows in your muppet repositories:
+          ```yaml
+          jobs:
+            test:
+              uses: muppet-platform/templates/.github/workflows/shared-test.yml@${{ steps.version.outputs.version_tag }}
+              with:
+                java_version: "21"
+                coverage_threshold: 70
+          ```
+          
+          ### Requirements
+          - Java 21 LTS (Amazon Corretto)
+          - Gradle 8.5+
+          - OpenTofu 1.6.0+
+          
+          ### Breaking Changes
+          ${{ github.event.inputs.version_type == 'major' && 'This is a major version release and may contain breaking changes.' || 'No breaking changes in this release.' }}
+        draft: false
+        prerelease: false
+        
+    - name: Version Summary
+      run: |
+        echo "## 🏷️ Workflow Version Release" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Template**: Java Micronaut" >> $GITHUB_STEP_SUMMARY
+        echo "- **New Version**: ${{ steps.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version Tag**: ${{ steps.version.outputs.version_tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Release Type**: ${{ github.event.inputs.version_type || 'patch' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Workflows Released" >> $GITHUB_STEP_SUMMARY
+        echo "- shared-test.yml" >> $GITHUB_STEP_SUMMARY
+        echo "- shared-build.yml" >> $GITHUB_STEP_SUMMARY
+        echo "- shared-deploy.yml" >> $GITHUB_STEP_SUMMARY
+        echo "- shared-security.yml" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Muppets can now reference these workflows using tag: \`${{ steps.version.outputs.version_tag }}\`" >> $GITHUB_STEP_SUMMARY

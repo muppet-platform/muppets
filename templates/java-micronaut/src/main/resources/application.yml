@@ -1,0 +1,58 @@
+micronaut:
+  application:
+    name: {{muppet_name}}
+  server:
+    port: 3000
+    host: 0.0.0.0
+  metrics:
+    enabled: true
+    export:
+      cloudwatch:
+        enabled: true
+        namespace: muppet-platform/{{muppet_name}}
+        step: PT1M
+  executors:
+    io:
+      type: fixed
+      nThreads: 75
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+  services:
+    cloudwatch:
+      endpoint-override: ${AWS_ENDPOINT_OVERRIDE:}
+
+endpoints:
+  health:
+    enabled: true
+    sensitive: false
+  info:
+    enabled: true
+    sensitive: false
+  metrics:
+    enabled: true
+    sensitive: false
+
+logger:
+  levels:
+    com.muppetplatform.{{muppet_name}}: INFO
+    root: WARN
+
+---
+micronaut:
+  environments: development
+  server:
+    port: 3000
+logger:
+  levels:
+    com.muppetplatform.{{muppet_name}}: DEBUG
+    root: INFO
+
+---
+micronaut:
+  environments: production
+logger:
+  levels:
+    com.muppetplatform.{{muppet_name}}: INFO
+    root: WARN

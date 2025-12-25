@@ -1,0 +1,55 @@
+# Platform Service Configuration
+# Configuration for the core platform service that orchestrates muppet lifecycle
+
+service:
+  name: "platform-service"
+  port: 8000
+  language: "python"
+  framework: "fastapi"
+  version: "0.1.0"
+
+mcp:
+  name: "mcp-server"
+  port: 8001
+  protocol: "stdio"
+
+aws:
+  region: "us-west-2"
+  
+  fargate:
+    cluster_name: "muppet-platform-cluster"
+    capacity_providers: ["FARGATE", "FARGATE_SPOT"]
+  
+  vpc:
+    cidr: "10.0.0.0/16"
+    availability_zones: ["us-west-2a", "us-west-2b"]
+
+github:
+  organization: "muppet-platform"
+  repositories:
+    platform: "platform"
+    templates: "templates"
+    terraform_modules: "terraform-modules"
+    steering_docs: "steering-docs"
+  
+  settings:
+    visibility: "private"
+    branch_protection: true
+    required_reviews: 1
+    dismiss_stale_reviews: true
+
+monitoring:
+  cloudwatch:
+    log_retention_days: 7
+    metrics_enabled: true
+    alarms_enabled: true
+  
+  xray:
+    enabled: false  # Cost optimization
+    sampling_rate: 0.1
+
+development:
+  local:
+    container_runtime: "rancher-desktop"
+    aws_simulation: "localstack"
+    hot_reload: true
