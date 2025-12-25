@@ -120,6 +120,7 @@ jobs:
     steps:
     - name: Delete old container images
       uses: actions/delete-package-versions@v4
+      continue-on-error: true
       with:
         package-name: ${{ github.repository }}/platform
         package-type: container
