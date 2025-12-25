@@ -154,7 +154,7 @@ except yaml.YAMLError as e:
 except Exception as e:
     print('❌ Error reading file:', e)
     sys.exit(1)
-            " || return 1
+" || return 1
         fi
     done
     

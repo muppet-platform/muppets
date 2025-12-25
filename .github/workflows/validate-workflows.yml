@@ -32,21 +32,21 @@ jobs:
             
             # Basic YAML syntax check
             python3 -c "
-            import yaml
-            import sys
-            try:
-                with open('$workflow', 'r') as f:
-                    yaml.safe_load(f)
-                print('✅ $workflow: Valid YAML syntax')
-            except yaml.YAMLError as e:
-                print('❌ $workflow: Invalid YAML syntax')
-                print(e)
-                sys.exit(1)
-            except Exception as e:
-                print('❌ $workflow: Error reading file')
-                print(e)
-                sys.exit(1)
-            "
+import yaml
+import sys
+try:
+    with open('$workflow', 'r') as f:
+        yaml.safe_load(f)
+    print('✅ $workflow: Valid YAML syntax')
+except yaml.YAMLError as e:
+    print('❌ $workflow: Invalid YAML syntax')
+    print(e)
+    sys.exit(1)
+except Exception as e:
+    print('❌ $workflow: Error reading file')
+    print(e)
+    sys.exit(1)
+"
           fi
         done
         

@@ -1,16 +1,6 @@
 # Shared ECR Registry Module
 # This module creates ECR repositories for muppets and platform components
 
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
 # Main ECR repository for the muppet
 resource "aws_ecr_repository" "main" {
   name                 = var.registry_name
