@@ -4,6 +4,15 @@
 
 This implementation plan breaks down the Muppet Platform development into discrete, incremental tasks. The approach follows a modular structure with separate development tracks for the platform core, templates, opentofu modules, and steering documentation. Each task builds upon previous work and includes comprehensive testing to ensure reliability.
 
+**Updated Focus**: Provide a clean, consistent Kiro-driven developer experience with limited complexity for muppet developers, while maintaining extensibility for power users who need custom infrastructure.
+
+## Core Principles
+
+1. **Simple by Default, Extensible by Choice**: Most developers get zero-config experience; power users can extend with custom OpenTofu modules
+2. **Kiro-First Experience**: All primary workflows happen through Kiro MCP tools with intelligent assistance
+3. **No Deletion**: Muppets are permanent once created (following immutable infrastructure principles)
+4. **Infrastructure Abstraction**: Hide complexity while allowing power user customization
+
 ## Tasks
 
 - [x] 1. Set up project structure and foundational components
@@ -41,11 +50,11 @@ This implementation plan breaks down the Muppet Platform development into discre
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
   - [x] 3.2 Implement core MCP tools
-    - Create create_muppet, delete_muppet, list_muppets tools
+    - Create create_muppet, list_muppets tools (no delete - muppets are immutable)
     - Implement get_muppet_status and get_muppet_logs tools
-    - Add list_templates and setup_muppet_dev tools
+    - Add list_templates and create_muppet_workspace tools
     - Add update_shared_steering and list_steering_docs tools
-    - _Requirements: 1.1, 1.3, 1.4, 7.1, 7.2, 7.3, 7.4_
+    - _Requirements: 1.1, 1.2, 1.4, 7.1, 7.2, 7.3, 7.4_
 
   - [x] 3.2.1 Implement pipeline management MCP tools
     - Add update_muppet_pipelines tool for updating muppet CI/CD workflows
@@ -336,20 +345,22 @@ This implementation plan breaks down the Muppet Platform development into discre
     - _Requirements: 8.4_
 
 - [ ] 14. Implement muppet lifecycle management
-  - [x] 14.1 Create complete muppet lifecycle system
+  - [x] 14.1 Create muppet lifecycle system (creation and monitoring only)
     - Integrate all components for end-to-end muppet creation
-    - Implement muppet deletion with complete cleanup
+    - Implement immutable muppet architecture (no deletion)
     - Create status tracking and health monitoring
-    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+    - Add muppet evolution and versioning capabilities
+    - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-  - [ ]* 14.2 Write property test for muppet deletion cleanup
-    - **Property 2: Muppet Deletion Cleanup**
-    - **Validates: Requirements 1.3**
+  - [ ]* 14.2 Write property test for muppet immutability
+    - **Property 2: Muppet Immutability**
+    - **Validates: Requirements 1.1, 1.2 (immutable infrastructure principles)**
 
   - [ ]* 14.3 Write integration tests for muppet lifecycle
-    - Test complete muppet creation and deletion flows
+    - Test complete muppet creation flows
     - Test integration between all platform components
-    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+    - Test muppet evolution and versioning
+    - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
 - [x] 15. Implement CI/CD pipelines
   - [x] 15.1 Create platform CI/CD workflows
@@ -407,44 +418,151 @@ This implementation plan breaks down the Muppet Platform development into discre
 - [ ] 17. Final integration and testing
   - [ ] 17.1 Perform end-to-end integration testing
     - Test complete platform functionality with real AWS services
-    - Validate muppet creation, deployment, and deletion flows
+    - Validate muppet creation and deployment flows (no deletion testing)
     - Test all MCP tools and platform integrations
+    - Test enhanced Kiro integration features
     - _Requirements: All requirements_
 
   - [ ]* 17.2 Write comprehensive integration tests
     - Test platform performance under load
     - Test concurrent muppet operations
     - Test failure recovery and resilience
+    - Test power user extensibility features
     - _Requirements: All requirements_
 
-- [ ] 18. Final checkpoint - Complete platform validation
+- [ ] 20. Final checkpoint - Complete platform validation
   - Ensure all tests pass, ask the user if questions arise.
+  - Validate simplified developer experience meets objectives
+  - Confirm power user extensibility works as intended
+  - Test enhanced Kiro integration provides seamless workflow
+
+- [ ] 18. Enhanced Kiro Integration and Developer Experience
+  - [ ] 18.1 Implement enhanced MCP tools for seamless Kiro experience
+    - Create `create_muppet_workspace(name, template)` - Creates muppet and opens in Kiro
+    - Implement `deploy_muppet()` - One-click deployment from current Kiro workspace
+    - Add `tail_logs(follow=true)` - Live log streaming in Kiro terminal
+    - Create `run_tests(watch=false)` - Execute tests with results in Kiro
+    - Add `generate_api_client(language)` - Auto-generate API clients from OpenAPI spec
+    - Implement `scaffold_feature(feature_type)` - Generate common patterns (CRUD, auth, etc.)
+    - _Requirements: Enhanced developer experience, Kiro-first workflows_
+
+  - [ ] 18.2 Implement intelligent Kiro workspace configuration
+    - Auto-configure language servers and extensions for muppet template type
+    - Set up template-specific code completion and snippets
+    - Configure automatic steering doc integration and context-aware suggestions
+    - Add built-in deployment commands and integrated monitoring dashboard
+    - Create template-specific debugging configurations
+    - _Requirements: Seamless development experience, reduced cognitive load_
+
+  - [ ] 18.3 Create power user extensibility framework
+    - Implement custom OpenTofu module integration for advanced users
+    - Create `extend_infrastructure(module_path)` MCP tool for custom modules
+    - Add infrastructure override system for power users
+    - Implement custom template creation tools for organizations
+    - Create advanced configuration options while maintaining simple defaults
+    - _Requirements: Power user flexibility, extensibility without complexity_
+
+  - [ ] 18.4 Implement simplified developer experience with power user escape hatches
+    - Create zero-config deployment for 80% of use cases
+    - Provide infrastructure customization options for power users
+    - Implement progressive disclosure of advanced features
+    - Add expert mode toggle for advanced users
+    - Create guided customization workflows
+    - _Requirements: Simple by default, extensible by choice_
+
+- [ ] 19. Simplified Template System with Power User Extensions
+  - [ ] 19.1 Create simplified template structure for template developers
+    - Simplify template structure to focus on application code and tests
+    - Auto-generate all infrastructure, CI/CD, and Kiro configurations
+    - Provide template metadata system for simple customization
+    - Create template validation that focuses on code quality, not infrastructure
+    - _Requirements: Reduced template developer complexity_
+
+  - [ ] 19.2 Implement auto-generated infrastructure system
+    - Platform automatically generates all OpenTofu configurations
+    - Auto-generate all CI/CD workflows based on template type
+    - Create all Kiro configurations automatically
+    - Generate all deployment scripts and monitoring configurations
+    - Allow power user overrides through extension points
+    - _Requirements: Zero infrastructure knowledge required for basic templates_
+
+  - [ ] 19.3 Create power user template extension system
+    - Allow custom OpenTofu modules to be integrated into templates
+    - Provide template inheritance system for organizational customization
+    - Create advanced template features for power users
+    - Implement template marketplace for sharing custom templates
+    - _Requirements: Extensibility for advanced use cases_
 
 ## Future Improvements
 
-- [ ] 19. Refactor Java package naming architecture
-  - [ ] 19.1 Create language-agnostic naming service layer
+- [ ] 21. Advanced Kiro AI Integration
+  - [ ] 21.1 Implement context-aware code generation
+    - AI-powered feature scaffolding based on muppet context
+    - Intelligent code completion using muppet-specific patterns
+    - Auto-generation of tests based on business logic
+    - Smart refactoring suggestions for muppet architecture
+    - _Requirements: Advanced AI-assisted development_
+
+  - [ ] 21.2 Create intelligent monitoring and alerting
+    - AI-powered anomaly detection for muppet behavior
+    - Predictive scaling recommendations
+    - Intelligent log analysis and error correlation
+    - Automated performance optimization suggestions
+    - _Requirements: Intelligent operations_
+
+- [ ] 22. Advanced Template Ecosystem
+  - [ ] 22.1 Create template marketplace and sharing
+    - Community template sharing platform
+    - Template rating and review system
+    - Organizational template libraries
+    - Template dependency management
+    - _Requirements: Template ecosystem growth_
+
+  - [ ] 22.2 Implement multi-language template support
+    - Python FastAPI template with similar features to Java Micronaut
+    - Node.js Express template for JavaScript developers
+    - Go Gin template for high-performance services
+    - Template cross-pollination of best practices
+    - _Requirements: Multi-language support_
+
+- [ ] 23. Enterprise Features
+  - [ ] 23.1 Implement multi-tenancy and organization support
+    - Organization-specific template libraries
+    - Tenant isolation and resource management
+    - Custom branding and configuration per organization
+    - Enterprise SSO integration
+    - _Requirements: Enterprise scalability_
+
+  - [ ] 23.2 Create advanced governance and compliance
+    - Policy-as-code for muppet creation and deployment
+    - Compliance scanning and reporting
+    - Audit trails for all muppet operations
+    - Cost management and resource optimization
+    - _Requirements: Enterprise governance_
+
+- [ ] 24. Refactor Java package naming architecture
+  - [ ] 24.1 Create language-agnostic naming service layer
     - Extract package naming logic from GenerationContext into dedicated service
     - Create pluggable naming strategy interface for different languages
     - Implement Java-specific naming strategy as first implementation
     - Support for future languages (Python, Go, TypeScript, etc.)
     - _Requirements: Extensibility, maintainability_
 
-  - [ ] 19.2 Resolve Java package namespace collision
+  - [ ] 24.2 Resolve Java package namespace collision
     - Change from `com.muppetplatform.{muppet_name}` to configurable base package
     - Allow organization-specific base packages (e.g., `com.mycompany.services.{muppet_name}`)
     - Prevent hardcoded "muppetplatform" from appearing in generated code
     - Support multiple package naming conventions per organization
     - _Requirements: Multi-tenancy, namespace isolation_
 
-  - [ ] 19.3 Implement naming strategy configuration
+  - [ ] 24.3 Implement naming strategy configuration
     - Add naming strategy configuration to template.yaml
     - Support per-template naming customization
     - Allow runtime naming strategy selection via parameters
     - Validate naming strategies against language-specific rules
     - _Requirements: Flexibility, validation_
 
-  - [ ] 19.4 Add comprehensive naming strategy tests
+  - [ ] 24.4 Add comprehensive naming strategy tests
     - Test pluggable naming strategy interface
     - Test multiple language naming strategies
     - Test configuration-driven naming behavior
@@ -461,3 +579,7 @@ This implementation plan breaks down the Muppet Platform development into discre
 - The modular structure allows parallel development of platform, templates, and infrastructure components
 - Centralized pipeline management allows template maintainers to update CI/CD logic for all muppets of their template type
 - Shared workflows within templates provide template-specific optimizations while maintaining central control
+- **No deletion functionality**: Muppets follow immutable infrastructure principles - once created, they persist
+- **Simple by default, extensible by choice**: Most developers get zero-config experience; power users can extend with custom infrastructure
+- **Kiro-first experience**: All primary workflows happen through enhanced MCP tools with intelligent assistance
+- **Progressive disclosure**: Advanced features are available but hidden from basic workflows to reduce cognitive load
