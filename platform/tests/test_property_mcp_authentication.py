@@ -7,18 +7,18 @@ which validates Requirements 7.5.
 Feature: muppet-platform, Property 8: MCP Authentication
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings
-from hypothesis.strategies import composite
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
 import os
+from unittest.mock import patch
 
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.strategies import composite
 from mcp.types import CallToolRequest, CallToolRequestParams
 
 from src.platform_mcp.auth import MCPAuthenticator
-from src.platform_mcp.server import MCPServer
 from src.platform_mcp.tools import MCPToolRegistry
 
 
@@ -195,7 +195,8 @@ class TestMCPAuthenticationProperty:
             get_settings.cache_clear()
 
     @given(authenticated_mcp_request())
-    @settings(max_examples=100, deadline=10000)  # Minimum 100 iterations as per design
+    # Minimum 100 iterations as per design
+    @settings(max_examples=100, deadline=10000)
     def test_authenticated_requests_are_processed(self, request):
         """
         Property 8a: Authenticated MCP requests should be processed successfully.
@@ -227,7 +228,8 @@ class TestMCPAuthenticationProperty:
         run_async_test(async_test())
 
     @given(unauthenticated_mcp_request())
-    @settings(max_examples=100, deadline=10000)  # Minimum 100 iterations as per design
+    # Minimum 100 iterations as per design
+    @settings(max_examples=100, deadline=10000)
     def test_unauthenticated_requests_are_rejected(self, request):
         """
         Property 8b: Unauthenticated MCP requests should be rejected.
@@ -398,28 +400,32 @@ class TestMCPAuthenticationProperty:
                     "token": "readonly-token-11223344",
                     "tool": "create_muppet",
                     "role": "readonly",
-                    "should_authenticate": False,  # Readonly cannot create muppets (authorization failure)
+                    # Readonly cannot create muppets (authorization failure)
+                    "should_authenticate": False,
                 },
                 {
                     "name": "developer_unauthorized_for_admin_tool",
                     "token": "dev-token-87654321",
                     "tool": "update_shared_steering",
                     "role": "developer",
-                    "should_authenticate": False,  # Developer cannot use admin tools (authorization failure)
+                    # Developer cannot use admin tools (authorization failure)
+                    "should_authenticate": False,
                 },
                 {
                     "name": "invalid_short_token",
                     "token": "short",
                     "tool": "list_muppets",
                     "role": "developer",
-                    "should_authenticate": False,  # Invalid token (authentication failure)
+                    # Invalid token (authentication failure)
+                    "should_authenticate": False,
                 },
                 {
                     "name": "empty_token",
                     "token": "",
                     "tool": "list_muppets",
                     "role": "developer",
-                    "should_authenticate": False,  # Empty token (authentication failure)
+                    # Empty token (authentication failure)
+                    "should_authenticate": False,
                 },
             ]
 

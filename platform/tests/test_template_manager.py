@@ -5,19 +5,18 @@ This module tests template discovery, validation, and code generation
 functionality of the TemplateManager class.
 """
 
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+
+import pytest
+import yaml
 
 from src.managers.template_manager import (
+    GenerationContext,
     TemplateManager,
     TemplateMetadata,
-    GenerationContext,
-    TemplateValidationError,
     TemplateNotFoundError,
-    CodeGenerationError,
+    TemplateValidationError,
 )
 from src.models import Template
 

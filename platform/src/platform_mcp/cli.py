@@ -8,7 +8,6 @@ as a standalone process or integrating with the main platform service.
 import asyncio
 import logging
 import sys
-from typing import Optional
 
 import click
 

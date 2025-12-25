@@ -5,7 +5,6 @@ This module defines all configuration settings with proper validation,
 environment variable support, and default values.
 """
 
-import os
 from functools import lru_cache
 from typing import List, Optional
 

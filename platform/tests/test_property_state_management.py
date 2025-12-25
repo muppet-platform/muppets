@@ -7,17 +7,17 @@ which validates Requirements 1.5.
 Feature: muppet-platform, Property 3: Registry Consistency
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings
-from hypothesis.strategies import composite
 import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
-from typing import List, Dict, Any
+from typing import List
+from unittest.mock import AsyncMock
 
-from src.state_manager import StateManager
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.strategies import composite
+
 from src.models import Muppet, MuppetStatus, PlatformState
-from src.exceptions import PlatformException
+from src.state_manager import StateManager
 
 
 # Custom strategies for generating test data

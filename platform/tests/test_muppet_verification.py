@@ -5,23 +5,21 @@ This module tests the automated verification of muppet instantiation from templa
 including parameter injection, variable replacement, and build validation.
 """
 
-import pytest
 import tempfile
-import json
-import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from src.managers.template_manager import TemplateManager
+from src.models import Template
 from src.verification.muppet_verification import (
+    BuildError,
     MuppetVerificationSystem,
     VerificationConfig,
-    VerificationResult,
     VerificationError,
-    BuildError,
-    ParameterInjectionError,
+    VerificationResult,
 )
-from src.managers.template_manager import TemplateManager, GenerationContext
-from src.models import Template
 
 
 class TestVerificationConfig:
@@ -1104,7 +1102,8 @@ micronaut {
                     assert "src/main/java/com/muppetplatform/" in str(
                         result.generated_files
                     )
-                    assert len(result.script_results) == 9  # All 9 expected scripts
+                    # All 9 expected scripts
+                    assert len(result.script_results) == 9
                     assert all(
                         script_result["exists"]
                         for script_result in result.script_results.values()

@@ -5,17 +5,16 @@ This module provides centralized state management by loading muppet data
 from GitHub at server startup and maintaining it in memory.
 """
 
-import logging
-from datetime import datetime
-from typing import Optional, List, Dict, Any
 import asyncio
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from .config import get_settings
-from .models import PlatformState, Muppet, MuppetStatus
-from .integrations.github import GitHubClient
-from .integrations.aws import ParameterStoreClient, ECSClient
 from .exceptions import PlatformException
+from .integrations.aws import ECSClient, ParameterStoreClient
+from .integrations.github import GitHubClient
 from .logging_config import get_logger
+from .models import Muppet, MuppetStatus, PlatformState
 
 logger = get_logger(__name__)
 

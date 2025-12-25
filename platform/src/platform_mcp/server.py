@@ -7,25 +7,23 @@ tools for muppet lifecycle management through Kiro.
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
 
+from mcp import McpError
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
+    INTERNAL_ERROR,
+    INVALID_REQUEST,
     CallToolRequest,
     CallToolResult,
     ListToolsRequest,
     ListToolsResult,
-    Tool,
     TextContent,
-    INTERNAL_ERROR,
-    INVALID_REQUEST,
 )
-from mcp import McpError
 
 from ..config import get_settings
-from ..managers.steering_manager import SteeringManager
 from ..integrations.github import GitHubClient
+from ..managers.steering_manager import SteeringManager
 from .auth import MCPAuthenticator
 from .tools import MCPToolRegistry
 

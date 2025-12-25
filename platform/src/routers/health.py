@@ -5,11 +5,10 @@ This module provides health and readiness endpoints for monitoring
 and load balancer health checks.
 """
 
-import logging
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
-from fastapi import APIRouter, status, Request
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel
 
 from ..config import get_settings

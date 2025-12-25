@@ -4,14 +4,14 @@ Unit tests for the Deployment Service.
 Tests the complete deployment orchestration for muppets to AWS Fargate.
 """
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
-from src.services.deployment_service import DeploymentService
-from src.models import Muppet, MuppetStatus
-from src.managers.infrastructure_manager import DeploymentState, DeploymentStatus
+import pytest
+
 from src.exceptions import DeploymentError, ValidationError
+from src.managers.infrastructure_manager import DeploymentState, DeploymentStatus
+from src.models import Muppet, MuppetStatus
+from src.services.deployment_service import DeploymentService
 
 
 @pytest.fixture

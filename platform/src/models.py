@@ -5,10 +5,10 @@ This module defines the core data structures used throughout the platform
 for representing muppets, state, and configuration.
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 class MuppetStatus(Enum):

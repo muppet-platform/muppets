@@ -5,23 +5,17 @@ Manages centralized steering documentation distribution and updates
 across all muppets in the platform.
 """
 
-import asyncio
-import json
 import logging
-import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import aiofiles
-import yaml
 from pydantic import BaseModel
 
 from ..config import get_settings
-from ..exceptions import PlatformException
 from ..integrations.github import GitHubClient
 from ..models import Muppet
-
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +201,7 @@ class SteeringManager:
 
     def _generate_muppet_specific_readme(self, muppet: Muppet) -> str:
         """Generate README for muppet-specific steering directory"""
-        return f"""# {muppet.name} Specific Steering Documentation
+        return """# {muppet.name} Specific Steering Documentation
 
 This directory contains steering documentation specific to the {muppet.name} muppet.
 
@@ -387,7 +381,7 @@ Shared platform standards are available in `../shared/`:
             result["muppet-specific"] = [
                 {
                     "name": "README",
-                    "path": f"muppet-specific/README.md",
+                    "path": "muppet-specific/README.md",
                     "version": "v1",
                     "last_updated": datetime.utcnow().isoformat(),
                     "category": "muppet-specific",
@@ -429,4 +423,3 @@ Shared platform standards are available in `../shared/`:
         """Clean up resources"""
         logger.info("Closing steering manager")
         # Clean up temporary files if needed
-        pass

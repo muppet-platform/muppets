@@ -5,24 +5,21 @@ Tests Terraform execution, state management, and AWS resource provisioning
 coordination functionality.
 """
 
-import pytest
-import tempfile
-import shutil
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime
+import shutil
+from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from src.exceptions import InfrastructureError
 from src.managers.infrastructure_manager import (
-    InfrastructureManager,
-    InfrastructureConfig,
     DeploymentState,
     DeploymentStatus,
+    InfrastructureConfig,
+    InfrastructureManager,
     TerraformOperation,
     TerraformOutput,
-    ModuleVersion,
 )
-from src.exceptions import InfrastructureError, ValidationError
 
 
 @pytest.fixture

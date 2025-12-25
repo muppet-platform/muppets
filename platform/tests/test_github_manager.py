@@ -5,13 +5,14 @@ This module tests the GitHubManager and its integration with
 the GitHub API client for muppet repository management.
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
 
+import pytest
+
+from src.exceptions import GitHubError, ValidationError
 from src.managers.github_manager import GitHubManager
 from src.models import Muppet, MuppetStatus
-from src.exceptions import GitHubError, ValidationError
 
 
 @pytest.fixture

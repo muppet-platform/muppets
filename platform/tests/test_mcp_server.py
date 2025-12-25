@@ -5,15 +5,14 @@ This module tests the MCP server foundation, authentication,
 and tool registry components.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 import os
-from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from mcp.types import CallToolRequest, ListToolsRequest, CallToolRequestParams
+import pytest
+from mcp.types import CallToolRequest, CallToolRequestParams
 
-from src.platform_mcp.server import MCPServer
 from src.platform_mcp.auth import MCPAuthenticator
+from src.platform_mcp.server import MCPServer
 from src.platform_mcp.tools import MCPToolRegistry
 
 
@@ -396,7 +395,6 @@ class TestMCPToolRegistry:
     # Comprehensive tests for delete_muppet tool
     @pytest.mark.asyncio
     # delete_muppet tests removed - deletion is now a manual operation for safety
-
     # Comprehensive tests for list_muppets tool
     @pytest.mark.asyncio
     async def test_execute_list_muppets_valid(self, tool_registry):
@@ -617,7 +615,8 @@ class TestMCPToolRegistry:
         assert "muppet_specific" in response
         assert response["muppet_name"] == "test-muppet"
         assert len(response["shared_steering"]) > 0  # Should have shared docs
-        assert len(response["muppet_specific"]) > 0  # Should have muppet-specific docs
+        # Should have muppet-specific docs
+        assert len(response["muppet_specific"]) > 0
 
     @pytest.mark.asyncio
     async def test_execute_list_steering_docs_invalid_muppet_name(self, tool_registry):

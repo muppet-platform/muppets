@@ -7,17 +7,22 @@ for muppet lifecycle management and platform operations.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from mcp.types import Tool
 from pydantic import BaseModel, Field, field_validator
 
 from ..config import get_settings
-from ..managers.steering_manager import SteeringManager
 from ..integrations.github import GitHubClient
+from ..logging_config import get_logger
+from ..managers.steering_manager import SteeringManager
 from ..services.muppet_lifecycle_service import MuppetLifecycleService
 from ..state_manager import get_state_manager
+
+# Get logger for this module
+logger = get_logger(__name__)
 
 
 # Input validation models
@@ -651,7 +656,7 @@ class MCPToolRegistry:
                     },
                     "next_steps": [
                         f"Clone the repository: git clone https://github.com/muppet-platform/{name}",
-                        f"Run the init script: ./scripts/init.sh",
+                        "Run the init script: ./scripts/init.sh",
                         "Open the project in Kiro for development",
                     ],
                 }

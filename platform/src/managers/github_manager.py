@@ -5,9 +5,7 @@ This module provides high-level GitHub operations for muppet lifecycle managemen
 including repository creation, configuration, and code deployment.
 """
 
-import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from ..config import get_settings
 from ..exceptions import GitHubError, ValidationError

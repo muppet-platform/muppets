@@ -8,7 +8,7 @@ handlers, and integration with AWS CloudWatch.
 import logging
 import logging.config
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def setup_logging(log_level: str = "INFO") -> None:

@@ -5,13 +5,11 @@ This module provides functionality to interact with AWS services including
 Parameter Store, ECS, and other AWS APIs.
 """
 
-import logging
 import asyncio
-from typing import Dict, Any, Optional, List
-import json
+from typing import Any, Dict, List, Optional
 
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError, BotoCoreError
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..config import get_settings
 from ..exceptions import AWSError

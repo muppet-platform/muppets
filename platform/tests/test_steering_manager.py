@@ -4,16 +4,17 @@ Tests for the Steering Manager component.
 Tests the centralized steering documentation management system.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.integrations.github import GitHubClient
 from src.managers.steering_manager import (
-    SteeringManager,
     SteeringDocument,
+    SteeringManager,
     SteeringVersion,
 )
-from src.integrations.github import GitHubClient
 from src.models import Muppet
 
 

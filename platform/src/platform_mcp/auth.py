@@ -6,7 +6,7 @@ ensuring only authorized users can perform muppet operations.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from mcp.types import CallToolRequest
 

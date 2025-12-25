@@ -5,14 +5,14 @@ Tests the complete integration between deployment service, infrastructure manage
 and API endpoints for muppet deployment to AWS Fargate.
 """
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from fastapi.testclient import TestClient
 from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock
 
-from src.main import create_app
-from src.models import Muppet, MuppetStatus
+import pytest
+from fastapi.testclient import TestClient
+
 from src.managers.infrastructure_manager import DeploymentState, DeploymentStatus
+from src.models import Muppet, MuppetStatus
 from src.services.deployment_service import DeploymentService
 from src.state_manager import get_state_manager
 
@@ -49,11 +49,11 @@ def mock_lifecycle_service():
 def app(mock_state_manager, mock_deployment_service, mock_lifecycle_service):
     """Create FastAPI app for testing with mocked dependencies."""
     # Create app without lifespan to avoid AWS client initialization
-    from fastapi import FastAPI
-    from src.routers import health, muppets
-    from src.exceptions import PlatformException
+    from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse
-    from fastapi import HTTPException
+
+    from src.exceptions import PlatformException
+    from src.routers import health, muppets
 
     app = FastAPI(
         title="Muppet Platform",
@@ -177,7 +177,8 @@ class TestFargateDeploymentIntegration:
                     "template": "java-micronaut",
                     "status": "running",
                     "github_repo_url": "https://github.com/muppet-platform/test-integration-muppet",
-                    "created_at": "2023-01-01T00:00:00",  # Remove Z suffix for fromisoformat compatibility
+                    # Remove Z suffix for fromisoformat compatibility
+                    "created_at": "2023-01-01T00:00:00",
                     "fargate_service_arn": "arn:aws:ecs:us-east-1:123456789012:service/test-cluster/test-integration-muppet",
                 }
             ]

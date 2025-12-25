@@ -5,13 +5,14 @@ This module tests the StateManager and its integration with
 GitHub, Parameter Store, and ECS clients.
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-from src.state_manager import StateManager, get_state_manager
-from src.models import Muppet, MuppetStatus, PlatformState
+import pytest
+
 from src.exceptions import PlatformException
+from src.models import Muppet, MuppetStatus, PlatformState
+from src.state_manager import StateManager, get_state_manager
 
 
 @pytest.fixture

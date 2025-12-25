@@ -5,10 +5,8 @@ This module provides functionality to interact with GitHub repositories,
 discover muppets, and manage repository metadata.
 """
 
-import logging
-from typing import List, Dict, Any, Optional
 from datetime import datetime
-import asyncio
+from typing import Any, Dict, List, Optional
 
 try:
     import httpx
@@ -19,8 +17,8 @@ except ImportError:
 
 from ..config import get_settings
 from ..exceptions import GitHubError
-from ..models import Muppet
 from ..logging_config import get_logger
+from ..models import Muppet
 
 logger = get_logger(__name__)
 
@@ -199,7 +197,7 @@ class GitHubClient:
                 # Real GitHub API implementation
                 # First, get the current file to get its SHA
                 url = f"{self.base_url}/repos/{repo_name}/contents/{file_path}"
-                response = await self._client.get(url, params={"ref": branch})
+                response = await self._client.get(url, params={"re": branch})
 
                 file_sha = None
                 if response.status_code == 200:
@@ -330,7 +328,7 @@ class GitHubClient:
             if self._client:
                 # Real GitHub API implementation
                 url = f"{self.base_url}/repos/{repo_name}/contents/{file_path}"
-                response = await self._client.get(url, params={"ref": ref})
+                response = await self._client.get(url, params={"re": ref})
 
                 if response.status_code == 404:
                     raise GitHubError(
@@ -338,7 +336,7 @@ class GitHubClient:
                         details={
                             "repository": repo_name,
                             "file_path": file_path,
-                            "ref": ref,
+                            "re": ref,
                         },
                     )
                 elif response.status_code != 200:
@@ -855,16 +853,16 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Amazon Corretto JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'corretto'
-    
+
     - name: Cache Gradle packages
       uses: actions/cache@v3
       with:
@@ -874,13 +872,13 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    
+
     - name: Run tests
       run: ./gradlew test
-    
+
     - name: Generate test report
       uses: dorny/test-reporter@v1
       if: success() || failure()
@@ -888,7 +886,7 @@ jobs:
         name: Test Results
         path: build/test-results/test/*.xml
         reporter: java-junit
-    
+
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
@@ -897,16 +895,16 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Amazon Corretto JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'corretto'
-    
+
     - name: Cache Gradle packages
       uses: actions/cache@v3
       with:
@@ -916,13 +914,13 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    
+
     - name: Build application
       run: ./gradlew build -x test
-    
+
     - name: Build Docker image
       run: docker build -t muppet-app .
 """
@@ -940,27 +938,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Amazon Corretto JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'corretto'
-    
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-west-2
-    
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
-    
+
     - name: Cache Gradle packages
       uses: actions/cache@v3
       with:
@@ -970,13 +968,13 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    
+
     - name: Build application
       run: ./gradlew build
-    
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -987,7 +985,7 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-    
+
     - name: Deploy to ECS
       run: |
         # Update ECS service with new image
@@ -1007,30 +1005,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    
+
     - name: Install UV
       run: curl -LsSf https://astral.sh/uv/install.sh | sh
-    
+
     - name: Install dependencies
       run: |
         uv venv
         source .venv/bin/activate
         uv pip install -r requirements.txt
         uv pip install pytest pytest-cov
-    
+
     - name: Run tests
       run: |
         source .venv/bin/activate
         pytest --cov=src --cov-report=xml
-    
+
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
@@ -1039,10 +1037,10 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Build Docker image
       run: docker build -t muppet-app .
 """
@@ -1060,21 +1058,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-west-2
-    
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
-    
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -1085,7 +1083,7 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-    
+
     - name: Deploy to ECS
       run: |
         aws ecs update-service --cluster muppet-platform-cluster --service ${{ github.event.repository.name }} --force-new-deployment
@@ -1104,10 +1102,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Run tests
       run: |
         if [ -f "scripts/test.sh" ]; then
@@ -1120,10 +1118,10 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Build Docker image
       run: docker build -t muppet-app .
 """
@@ -1141,21 +1139,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-west-2
-    
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
-    
+
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -1166,7 +1164,7 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-    
+
     - name: Deploy to ECS
       run: |
         aws ecs update-service --cluster muppet-platform-cluster --service ${{ github.event.repository.name }} --force-new-deployment
@@ -1542,312 +1540,6 @@ terraform/ @muppet-platform/infrastructure-team
             raise GitHubError(
                 message=f"Failed to delete repository: {str(e)}",
                 details={"repository": name},
-            )
-
-    async def update_repository_status(self, name: str, status: str) -> bool:
-        """
-        Update repository status by modifying topics.
-
-        Args:
-            name: Repository name
-            status: New status value
-
-        Returns:
-            True if update was successful
-
-        Raises:
-            GitHubError: If status update fails
-        """
-        try:
-            logger.debug(f"Updating repository {name} status to: {status}")
-
-            if self._client:
-                # Get current topics
-                repo_data = await self.get_repository(name)
-                if not repo_data:
-                    raise GitHubError(
-                        message=f"Repository '{name}' not found",
-                        details={"repository": name},
-                    )
-
-                current_topics = repo_data.get("topics", [])
-
-                # Update status topic
-                new_topics = []
-                for topic in current_topics:
-                    if not topic.startswith("status-"):
-                        new_topics.append(topic)
-                new_topics.append(f"status-{status}")
-
-                # Set updated topics
-                await self._set_repository_topics(name, new_topics)
-
-                logger.debug(f"Updated repository {name} status to {status}")
-                return True
-            else:
-                # Mock implementation
-                logger.debug(f"Updated repository {name} status (mock)")
-                return True
-
-        except GitHubError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to update repository {name} status: {e}")
-            raise GitHubError(
-                message=f"Failed to update repository status: {str(e)}",
-                details={"repository": name, "status": status},
-            )
-
-    async def update_file(
-        self,
-        repo_name: str,
-        file_path: str,
-        content: str,
-        commit_message: str,
-        branch: str = "main",
-    ) -> bool:
-        """
-        Update a file in the repository.
-
-        Args:
-            repo_name: Repository name (e.g., "muppet-platform/my-muppet")
-            file_path: File path in repository
-            content: New file content
-            commit_message: Commit message
-            branch: Branch to update (default: main)
-
-        Returns:
-            True if successful
-
-        Raises:
-            GitHubError: If file update fails
-        """
-        try:
-            logger.debug(f"Updating file {file_path} in {repo_name}")
-
-            if not self._client:
-                logger.info(f"Update file (mock): {file_path} in {repo_name}")
-                return True
-
-            import base64
-
-            # Get current file to get its SHA
-            url = f"{self.base_url}/repos/{repo_name}/contents/{file_path}"
-            response = await self._client.get(url, params={"ref": branch})
-
-            sha = None
-            if response.status_code == 200:
-                file_data = response.json()
-                sha = file_data["sha"]
-            elif response.status_code != 404:
-                raise GitHubError(
-                    message=f"Failed to get file info: {response.status_code} - {response.text}",
-                    details={
-                        "status_code": response.status_code,
-                        "file_path": file_path,
-                    },
-                )
-
-            # Update or create the file
-            payload = {
-                "message": commit_message,
-                "content": base64.b64encode(content.encode()).decode(),
-                "branch": branch,
-            }
-
-            if sha:
-                payload["sha"] = sha
-
-            response = await self._client.put(url, json=payload)
-
-            if response.status_code in [200, 201]:
-                logger.debug(f"Updated file {file_path} in {repo_name}")
-                return True
-            else:
-                raise GitHubError(
-                    message=f"Failed to update file: {response.status_code} - {response.text}",
-                    details={
-                        "status_code": response.status_code,
-                        "file_path": file_path,
-                    },
-                )
-
-        except GitHubError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to update file {file_path} in {repo_name}: {e}")
-            raise GitHubError(
-                message=f"Failed to update file: {str(e)}",
-                details={"repository": repo_name, "file_path": file_path},
-            )
-
-    async def list_tags(self, repo_name: str) -> List[Dict[str, Any]]:
-        """
-        List tags for a repository.
-
-        Args:
-            repo_name: Repository name (e.g., "muppet-platform/templates")
-
-        Returns:
-            List of tag information
-
-        Raises:
-            GitHubError: If API request fails
-        """
-        try:
-            logger.debug(f"Listing tags for {repo_name}")
-
-            if not self._client:
-                # Mock tags for development
-                return [
-                    {
-                        "name": "java-micronaut-v1.2.3",
-                        "commit": {"sha": "abc123"},
-                        "created_at": "2024-01-15T10:00:00Z",
-                    },
-                    {
-                        "name": "java-micronaut-v1.2.2",
-                        "commit": {"sha": "def456"},
-                        "created_at": "2024-01-10T10:00:00Z",
-                    },
-                    {
-                        "name": "java-micronaut-v1.2.1",
-                        "commit": {"sha": "ghi789"},
-                        "created_at": "2024-01-05T10:00:00Z",
-                    },
-                ]
-
-            url = f"{self.base_url}/repos/{repo_name}/tags"
-            response = await self._client.get(url)
-
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 404:
-                logger.warning(f"Repository not found: {repo_name}")
-                return []
-            else:
-                raise GitHubError(
-                    message=f"Failed to list tags: {response.status_code} - {response.text}",
-                    details={
-                        "status_code": response.status_code,
-                        "repository": repo_name,
-                    },
-                )
-
-        except GitHubError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to list tags for {repo_name}: {e}")
-            raise GitHubError(
-                message=f"Failed to list tags: {str(e)}",
-                details={"repository": repo_name},
-            )
-
-    async def get_file_content(
-        self, repo_name: str, file_path: str, ref: str = "main"
-    ) -> str:
-        """
-        Get file content from a repository.
-
-        Args:
-            repo_name: Repository name (e.g., "muppet-platform/templates")
-            file_path: File path in repository
-            ref: Git reference (branch, tag, or commit SHA)
-
-        Returns:
-            File content as string
-
-        Raises:
-            GitHubError: If file retrieval fails
-        """
-        try:
-            logger.debug(f"Getting file {file_path} from {repo_name} at {ref}")
-
-            if not self._client:
-                # Mock file content for development
-                if "ci.yml.template" in file_path:
-                    return """name: CI
-on: [push, pull_request]
-
-jobs:
-  ci:
-    uses: muppet-platform/templates/.github/workflows/shared-ci.yml@{{workflow_version}}
-    with:
-      template_type: java-micronaut
-      java_version: "21"
-      muppet_name: {{muppet_name}}
-      aws_region: {{aws_region}}
-    secrets: inherit
-"""
-                elif "deploy.yml.template" in file_path:
-                    return """name: Deploy
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    uses: muppet-platform/templates/.github/workflows/shared-deploy.yml@{{workflow_version}}
-    with:
-      template_type: java-micronaut
-      muppet_name: {{muppet_name}}
-      aws_region: {{aws_region}}
-    secrets: inherit
-"""
-                elif "WORKFLOW_MANIFEST.json" in file_path:
-                    return """{
-  "workflows": {
-    "ci": "Continuous Integration workflow with testing and building",
-    "deploy": "Deployment workflow for AWS Fargate"
-  },
-  "requirements": {
-    "java_version": "21",
-    "template_type": "java-micronaut"
-  }
-}"""
-                else:
-                    return f"Mock content for {file_path}"
-
-            import base64
-
-            url = f"{self.base_url}/repos/{repo_name}/contents/{file_path}"
-            params = {"ref": ref}
-            response = await self._client.get(url, params=params)
-
-            if response.status_code == 200:
-                file_data = response.json()
-                if file_data.get("encoding") == "base64":
-                    content = base64.b64decode(file_data["content"]).decode()
-                    return content
-                else:
-                    return file_data.get("content", "")
-            elif response.status_code == 404:
-                raise GitHubError(
-                    message=f"File not found: {file_path}",
-                    details={
-                        "repository": repo_name,
-                        "file_path": file_path,
-                        "ref": ref,
-                    },
-                )
-            else:
-                raise GitHubError(
-                    message=f"Failed to get file content: {response.status_code} - {response.text}",
-                    details={
-                        "status_code": response.status_code,
-                        "file_path": file_path,
-                    },
-                )
-
-        except GitHubError:
-            raise
-        except Exception as e:
-            logger.error(
-                f"Failed to get file content {file_path} from {repo_name}: {e}"
-            )
-            raise GitHubError(
-                message=f"Failed to get file content: {str(e)}",
-                details={"repository": repo_name, "file_path": file_path, "ref": ref},
             )
 
     async def close(self) -> None:

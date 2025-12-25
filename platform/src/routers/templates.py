@@ -4,10 +4,9 @@ Template management endpoints for the Muppet Platform.
 This module provides REST API endpoints for template discovery and information.
 """
 
-import logging
 from typing import List
 
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from ..logging_config import get_logger

@@ -136,6 +136,32 @@ wheels = [
 ]
 
 [[package]]
+name = "autoflake"
+version = "2.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyflakes" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2a/cb/486f912d6171bc5748c311a2984a301f4e2d054833a1da78485866c71522/autoflake-2.3.1.tar.gz", hash = "sha256:c98b75dc5b0a86459c4f01a1d32ac7eb4338ec4317a4469515ff1e687ecd909e", size = 27642, upload-time = "2024-03-13T03:41:28.977Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/ee/3fd29bf416eb4f1c5579cf12bf393ae954099258abd7bde03c4f9716ef6b/autoflake-2.3.1-py3-none-any.whl", hash = "sha256:3ae7495db9084b7b32818b4140e6dc4fc280b712fb414f5b8fe57b0a8e85a840", size = 32483, upload-time = "2024-03-13T03:41:26.969Z" },
+]
+
+[[package]]
+name = "autopep8"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pycodestyle" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/11/7f4fe3b6ce04a073ce093413f8ddaedc253feebafaabd24e0faa1eb7739d/autopep8-2.2.0.tar.gz", hash = "sha256:d306a0581163ac29908280ad557773a95a9bede072c0fafed6f141f5311f43c1", size = 91723, upload-time = "2024-05-30T13:21:03.998Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/21/29/d0f88a0c003f55cb2d2cfbf92599ea13125eae544b73ddd2f78af9ced72e/autopep8-2.2.0-py2.py3-none-any.whl", hash = "sha256:05418a981f038969d8bdcd5636bf15948db7555ae944b9f79b5a34b35f1370d4", size = 45506, upload-time = "2024-05-30T13:21:01.386Z" },
+]
+
+[[package]]
 name = "black"
 version = "23.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1211,6 +1237,8 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "autoflake" },
+    { name = "autopep8" },
     { name = "black" },
     { name = "flake8" },
     { name = "isort" },
@@ -1250,6 +1278,8 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "autoflake", specifier = ">=2.3.1" },
+    { name = "autopep8", specifier = ">=2.2.0" },
     { name = "black", specifier = ">=23.11.0" },
     { name = "flake8", specifier = ">=6.1.0" },
     { name = "isort", specifier = ">=5.12.0" },

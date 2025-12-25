@@ -5,11 +5,11 @@ This module tests the _to_java_package_name method in GenerationContext
 to ensure muppet names are correctly converted to valid Java package names.
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock
 
-from src.managers.template_manager import TemplateManager, GenerationContext
+import pytest
+
+from src.managers.template_manager import GenerationContext
 
 
 class TestJavaPackageNaming:

@@ -6,16 +6,15 @@ provisioning. It coordinates the deployment of shared infrastructure modules
 and manages module versioning and updates.
 """
 
-import os
-import json
 import asyncio
-import tempfile
+import json
+import os
 import shutil
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+import tempfile
 from dataclasses import dataclass
 from enum import Enum
-import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from ..config import get_settings
 from ..exceptions import InfrastructureError, ValidationError
@@ -397,7 +396,7 @@ class InfrastructureManager:
         for item in self.terraform_modules_path.iterdir():
             if item.is_dir() and not item.name.startswith("."):
                 # Check if it's a valid Terraform module
-                if (item / "main.tf").exists() or (item / "variables.tf").exists():
+                if (item / "main.t").exists() or (item / "variables.t").exists():
                     modules.append(item.name)
 
         logger.debug(f"Found {len(modules)} available modules: {modules}")
@@ -421,11 +420,11 @@ class InfrastructureManager:
 
         # Generate main.tf
         main_tf_content = self._generate_main_tf(config)
-        (workspace_dir / "main.tf").write_text(main_tf_content)
+        (workspace_dir / "main.t").write_text(main_tf_content)
 
         # Generate variables.tf
         variables_tf_content = self._generate_variables_tf(config)
-        (workspace_dir / "variables.tf").write_text(variables_tf_content)
+        (workspace_dir / "variables.t").write_text(variables_tf_content)
 
         # Generate terraform.tfvars
         tfvars_content = self._generate_tfvars(config)
@@ -435,7 +434,7 @@ class InfrastructureManager:
 
     def _generate_main_tf(self, config: InfrastructureConfig) -> str:
         """Generate main.tf content."""
-        return f"""# Generated Terraform configuration for {config.muppet_name}
+        return """# Generated Terraform configuration for {config.muppet_name}
 
 terraform {{
   required_version = ">= 1.0"
@@ -449,7 +448,7 @@ terraform {{
 
 provider "aws" {{
   region = var.aws_region
-  
+
   default_tags {{
     tags = {{
       Project     = "muppet-platform"
@@ -463,7 +462,7 @@ provider "aws" {{
 # Networking Module
 module "networking" {{
   source = "{self.terraform_modules_path}/networking"
-  
+
   name_prefix          = var.muppet_name
   vpc_cidr            = var.vpc_cidr
   public_subnet_count = var.public_subnet_count
@@ -471,87 +470,87 @@ module "networking" {{
   enable_nat_gateway   = var.enable_nat_gateway
   single_nat_gateway   = var.single_nat_gateway
   enable_vpc_endpoints = var.enable_vpc_endpoints
-  
+
   tags = local.common_tags
 }}
 
 # IAM Module
 module "iam" {{
   source = "{self.terraform_modules_path}/iam"
-  
+
   name_prefix = var.muppet_name
-  
+
   tags = local.common_tags
 }}
 
 # ECR Module
 module "ecr" {{
   source = "{self.terraform_modules_path}/ecr"
-  
+
   registry_name   = var.muppet_name
   enable_scanning = var.enable_ecr_scanning
-  
+
   tags = local.common_tags
 }}
 
 # Fargate Service Module
 module "fargate_service" {{
   source = "{self.terraform_modules_path}/fargate-service"
-  
+
   service_name    = var.muppet_name
   cluster_name    = "${{var.muppet_name}}-cluster"
   container_image = var.container_image
   container_port  = var.container_port
-  
+
   # Networking
   vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
   public_subnet_ids  = module.networking.public_subnet_ids
-  
+
   # Resource allocation
   cpu    = var.fargate_cpu
   memory = var.fargate_memory
-  
+
   # Scaling
   desired_count            = var.desired_count
   enable_autoscaling       = var.enable_autoscaling
   autoscaling_min_capacity = var.autoscaling_min_capacity
   autoscaling_max_capacity = var.autoscaling_max_capacity
-  
+
   # Environment variables
   environment_variables = var.environment_variables
   secrets              = var.secrets
-  
+
   # Health checks
   health_check_path = var.health_check_path
-  
+
   # Logging
   log_retention_days = var.log_retention_days
-  
+
   tags = local.common_tags
 }}
 
 # Monitoring Module
 module "monitoring" {{
   source = "{self.terraform_modules_path}/monitoring"
-  
+
   service_name   = var.muppet_name
   cluster_name   = module.fargate_service.cluster_name
   log_group_name = module.fargate_service.log_group_name
-  
+
   # Load balancer metrics
   load_balancer_arn_suffix = module.fargate_service.load_balancer_arn != null ? split("/", module.fargate_service.load_balancer_arn)[1] : ""
   target_group_arn_suffix  = module.fargate_service.target_group_arn != null ? split("/", module.fargate_service.target_group_arn)[1] : ""
-  
+
   # Alarm configuration
   enable_alarms = var.enable_monitoring_alarms
   alarm_actions = var.alarm_actions
-  
+
   # Thresholds
   cpu_alarm_threshold          = var.cpu_alarm_threshold
   memory_alarm_threshold       = var.memory_alarm_threshold
   response_time_alarm_threshold = var.response_time_alarm_threshold
-  
+
   tags = local.common_tags
 }}
 
@@ -813,7 +812,7 @@ variable "response_time_alarm_threshold" {
             env_vars_tf += f'    "{key}" = "{value}"\n'
         env_vars_tf += "  }"
 
-        return f"""# Terraform variables for {config.muppet_name}
+        return """# Terraform variables for {config.muppet_name}
 
 # Basic Configuration
 muppet_name   = "{config.muppet_name}"

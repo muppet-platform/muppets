@@ -5,12 +5,13 @@ This module tests the FastAPI application initialization,
 configuration, and basic functionality.
 """
 
-import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch
 
-from src.main import create_app
+import pytest
+from fastapi.testclient import TestClient
+
 from src.config import get_settings
+from src.main import create_app
 
 
 @pytest.fixture

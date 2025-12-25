@@ -5,7 +5,7 @@ This module defines platform-specific exceptions with proper error codes,
 messages, and structured error handling.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 
 class PlatformException(Exception):

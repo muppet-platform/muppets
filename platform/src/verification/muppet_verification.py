@@ -6,22 +6,18 @@ It creates test muppets, verifies parameter injection, validates code generation
 and tests that generated code compiles and builds successfully.
 """
 
-import os
-import shutil
-import tempfile
-import subprocess
-import json
 import re
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
-import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..managers.template_manager import TemplateManager, GenerationContext
-from ..models import Template
 from ..exceptions import PlatformException
 from ..logging_config import get_logger
+from ..managers.template_manager import GenerationContext, TemplateManager
+from ..models import Template
 
 logger = get_logger(__name__)
 
@@ -29,19 +25,13 @@ logger = get_logger(__name__)
 class VerificationError(PlatformException):
     """Raised when muppet verification fails."""
 
-    pass
-
 
 class BuildError(VerificationError):
     """Raised when muppet build fails."""
 
-    pass
-
 
 class ParameterInjectionError(VerificationError):
     """Raised when template parameter injection fails."""
-
-    pass
 
 
 @dataclass
@@ -850,7 +840,7 @@ class MuppetVerificationSystem:
             ".png",
             ".jpg",
             ".jpeg",
-            ".gif",
+            ".gi",
             ".zip",
             ".tar",
             ".gz",

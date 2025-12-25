@@ -8,11 +8,8 @@ allowing external clients to interact with the platform's MCP functionality.
 import logging
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-from ..config import get_settings
-
 
 logger = logging.getLogger(__name__)
 

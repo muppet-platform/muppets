@@ -13,9 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import get_settings
-from .logging_config import setup_logging
 from .exceptions import PlatformException
-from .routers import health, muppets, mcp, templates
+from .logging_config import setup_logging
+from .routers import health, mcp, muppets, templates
 
 
 @asynccontextmanager

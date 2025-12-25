@@ -6,19 +6,17 @@ capabilities for the Muppet Platform. It handles template metadata management,
 parameter injection, and code generation from templates.
 """
 
-import os
-import yaml
-import shutil
-import tempfile
 import re
-from pathlib import Path
-from typing import List, Dict, Any, Optional
+import shutil
 from dataclasses import dataclass
-import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ..models import Template
+import yaml
+
 from ..exceptions import PlatformException
 from ..logging_config import get_logger
+from ..models import Template
 
 logger = get_logger(__name__)
 
@@ -26,19 +24,13 @@ logger = get_logger(__name__)
 class TemplateValidationError(PlatformException):
     """Raised when template validation fails."""
 
-    pass
-
 
 class TemplateNotFoundError(PlatformException):
     """Raised when a requested template is not found."""
 
-    pass
-
 
 class CodeGenerationError(PlatformException):
     """Raised when code generation fails."""
-
-    pass
 
 
 @dataclass
@@ -161,10 +153,10 @@ class GenerationContext:
             "float",
             "for",
             "goto",
-            "if",
+            "i",
             "implements",
             "import",
-            "instanceof",
+            "instanceo",
             "int",
             "interface",
             "long",
@@ -597,7 +589,7 @@ class TemplateManager:
             ".png",
             ".jpg",
             ".jpeg",
-            ".gif",
+            ".gi",
             ".zip",
             ".tar",
             ".gz",
@@ -606,7 +598,7 @@ class TemplateManager:
             ".dll",
             ".so",
             ".dylib",
-            ".pdf",
+            ".pd",
             ".doc",
             ".docx",
             ".xls",
@@ -672,7 +664,7 @@ class TemplateManager:
         """
         try:
             # Only check text files
-            if file_path.suffix in [".jar", ".class", ".png", ".jpg", ".gif", ".zip"]:
+            if file_path.suffix in [".jar", ".class", ".png", ".jpg", ".gi", ".zip"]:
                 return False
 
             with open(file_path, "r", encoding="utf-8") as f:

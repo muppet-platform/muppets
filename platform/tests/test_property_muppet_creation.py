@@ -7,17 +7,16 @@ which validates Requirements 1.1, 1.2, 9.1, 9.2.
 Feature: muppet-platform, Property 1: Muppet Creation Completeness
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings
-from hypothesis.strategies import composite
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from src.models import Muppet, MuppetStatus
-from src.platform_mcp.tools import MCPToolRegistry, CreateMuppetArgs
-from src.state_manager import StateManager
-from src.config import get_settings
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.strategies import composite
+
+from src.platform_mcp.tools import CreateMuppetArgs, MCPToolRegistry
 
 
 # Custom strategies for generating test data
@@ -78,7 +77,8 @@ class TestMuppetCreationCompleteness:
     """
 
     @given(muppet_creation_inputs())
-    @settings(max_examples=100, deadline=10000)  # Minimum 100 iterations as per design
+    # Minimum 100 iterations as per design
+    @settings(max_examples=100, deadline=10000)
     def test_muppet_creation_completeness_property(self, creation_input):
         """
         Property 1: Muppet Creation Completeness

@@ -6,22 +6,17 @@ including container deployment to AWS Fargate, load balancer configuration,
 and health monitoring setup.
 """
 
-import asyncio
-import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from ..config import get_settings
 from ..exceptions import DeploymentError, ValidationError
+from ..integrations.aws import get_ecr_client, get_ecs_client
 from ..logging_config import get_logger
-from ..models import Muppet, MuppetStatus, InfrastructureConfig
-from ..managers.infrastructure_manager import (
-    InfrastructureManager,
-    InfrastructureConfig as InfraConfig,
-    DeploymentState,
-)
 from ..managers.github_manager import GitHubManager
-from ..integrations.aws import get_ecs_client, get_ecr_client
+from ..managers.infrastructure_manager import InfrastructureConfig as InfraConfig
+from ..managers.infrastructure_manager import InfrastructureManager
+from ..models import Muppet, MuppetStatus
 
 logger = get_logger(__name__)
 

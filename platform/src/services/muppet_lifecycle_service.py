@@ -6,33 +6,27 @@ integrating all platform components for creation, deployment, monitoring,
 and deletion operations.
 """
 
-import asyncio
-import logging
-from typing import Dict, List, Optional, Any, Tuple
+import tempfile
 from datetime import datetime
 from pathlib import Path
-import tempfile
-import shutil
+from typing import Any, Dict, List, Optional
 
 from ..config import get_settings
 from ..exceptions import (
-    PlatformException,
     DeploymentError,
-    ValidationError,
     GitHubError,
+    PlatformException,
+    ValidationError,
 )
-from ..logging_config import get_logger
-from ..models import Muppet, MuppetStatus, PlatformState
-from ..state_manager import get_state_manager
-from ..managers.template_manager import TemplateManager, GenerationContext
-from ..managers.github_manager import GitHubManager
-from ..managers.infrastructure_manager import (
-    InfrastructureManager,
-    InfrastructureConfig,
-)
-from ..managers.steering_manager import SteeringManager
-from ..services.deployment_service import DeploymentService
 from ..integrations.github import GitHubClient
+from ..logging_config import get_logger
+from ..managers.github_manager import GitHubManager
+from ..managers.infrastructure_manager import InfrastructureManager
+from ..managers.steering_manager import SteeringManager
+from ..managers.template_manager import GenerationContext, TemplateManager
+from ..models import Muppet, MuppetStatus
+from ..services.deployment_service import DeploymentService
+from ..state_manager import get_state_manager
 
 logger = get_logger(__name__)
 
@@ -195,7 +189,7 @@ class MuppetLifecycleService:
             # Update muppet status to error if it was added to state
             try:
                 await self.state_manager.update_muppet_status(name, MuppetStatus.ERROR)
-            except:
+            except Exception:
                 pass
             raise
         except Exception as e:
@@ -203,7 +197,7 @@ class MuppetLifecycleService:
             # Update muppet status to error if it was added to state
             try:
                 await self.state_manager.update_muppet_status(name, MuppetStatus.ERROR)
-            except:
+            except Exception:
                 pass
             raise PlatformException(
                 message=f"Muppet creation failed: {str(e)}",
@@ -735,15 +729,15 @@ class MuppetLifecycleService:
 
         steps = [
             f"Clone the repository: git clone {muppet.github_repo_url}",
-            f"Open the project in Kiro for development",
-            f"Review the generated code and steering documentation",
+            "Open the project in Kiro for development",
+            "Review the generated code and steering documentation",
         ]
 
         if not auto_deploy:
             steps.extend(
                 [
                     f"Build the container image: docker build -t {muppet.name} .",
-                    f"Deploy to AWS Fargate using the platform MCP tools",
+                    "Deploy to AWS Fargate using the platform MCP tools",
                 ]
             )
         elif deployment_result and deployment_result.get("service_url"):

@@ -5,18 +5,17 @@ This module provides REST API endpoints for muppet lifecycle management,
 including deployment operations to AWS Fargate.
 """
 
-import logging
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from ..exceptions import DeploymentError, PlatformException, ValidationError
 from ..logging_config import get_logger
-from ..state_manager import get_state_manager
 from ..services.deployment_service import DeploymentService
 from ..services.muppet_lifecycle_service import MuppetLifecycleService
-from ..exceptions import PlatformException, DeploymentError, ValidationError
+from ..state_manager import get_state_manager
 
 logger = get_logger(__name__)
 router = APIRouter()

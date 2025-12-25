@@ -10,11 +10,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any
 
-from .muppet_verification import MuppetVerificationSystem, VerificationConfig
-from ..managers.template_manager import TemplateManager
 from ..logging_config import get_logger
+from ..managers.template_manager import TemplateManager
+from .muppet_verification import MuppetVerificationSystem, VerificationConfig
 
 logger = get_logger(__name__)
 
@@ -39,7 +38,7 @@ def print_verification_result(result, verbose: bool = False) -> None:
     print(f"Duration: {result.duration_seconds:.2f} seconds")
     print(f"Workspace: {result.verification_path}")
 
-    print(f"\nStep Results:")
+    print("\nStep Results:")
     print(
         f"  Template Generation: {'✅' if result.template_generation_success else '❌'}"
     )
@@ -62,12 +61,12 @@ def print_verification_result(result, verbose: bool = False) -> None:
             print(f"  ... and {len(result.generated_files) - 10} more files")
 
     if result.build_artifacts:
-        print(f"\nBuild Artifacts:")
+        print("\nBuild Artifacts:")
         for artifact in result.build_artifacts:
             print(f"  - {artifact}")
 
     if result.script_results:
-        print(f"\nScript Verification:")
+        print("\nScript Verification:")
         for script_name, script_result in result.script_results.items():
             # Basic status
             basic_status = (
@@ -97,31 +96,31 @@ def print_verification_result(result, verbose: bool = False) -> None:
                     print(f"      Error: {error}")
 
             if verbose and script_result["functional_test_output"]:
-                print(f"      Functional test output:")
+                print("      Functional test output:")
                 for line in script_result["functional_test_output"].split("\n")[
                     :5
                 ]:  # Show first 5 lines
                     print(f"        {line}")
                 if len(script_result["functional_test_output"].split("\n")) > 5:
-                    print(f"        ... (truncated)")
+                    print("        ... (truncated)")
 
     if result.injected_parameters:
-        print(f"\nInjected Parameters:")
+        print("\nInjected Parameters:")
         for param, value in result.injected_parameters.items():
             print(f"  - {param}: {value}")
 
     if result.warnings:
-        print(f"\nWarnings:")
+        print("\nWarnings:")
         for warning in result.warnings:
             print(f"  ⚠️  {warning}")
 
     if result.errors:
-        print(f"\nErrors:")
+        print("\nErrors:")
         for error in result.errors:
             print(f"  ❌ {error}")
 
     if verbose and result.build_output:
-        print(f"\nBuild Output:")
+        print("\nBuild Output:")
         print("-" * 40)
         print(result.build_output)
         print("-" * 40)
@@ -205,7 +204,7 @@ def verify_all_templates(args) -> int:
 
         # Print summary
         print(f"\n{'='*60}")
-        print(f"Verification Summary")
+        print("Verification Summary")
         print(f"{'='*60}")
 
         total_templates = len(results)
@@ -305,19 +304,19 @@ def main():
 Examples:
   # Verify a specific template
   python -m src.verification.cli verify java-micronaut
-  
+
   # Verify all templates
   python -m src.verification.cli verify-all
-  
+
   # Verify with functional script testing enabled
   python -m src.verification.cli verify java-micronaut --functional-tests
-  
+
   # Verify with custom parameters
   python -m src.verification.cli verify java-micronaut --custom-params '{"environment": "test"}'
-  
+
   # List available templates
   python -m src.verification.cli list
-  
+
   # Verify and save results to file
   python -m src.verification.cli verify java-micronaut --output results.json
         """,
