@@ -341,6 +341,7 @@ class MuppetVerificationSystem:
                 logger.error(f"Failed to verify template '{template.name}': {e}")
                 # Create a failed result
                 import tempfile
+
                 results[template.name] = VerificationResult(
                     muppet_name=f"failed-{template.name}",
                     template_name=template.name,
