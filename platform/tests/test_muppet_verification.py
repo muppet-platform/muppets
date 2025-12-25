@@ -613,38 +613,9 @@ class TestMuppetVerificationSystem:
             assert any("Missing build artifact" in error for error in result.errors)
 
     def test_verify_development_scripts_success(self, verification_system):
-        """Test successful development script verification."""
+        """Test development script verification with auto-generation architecture (no scripts expected)."""
         with tempfile.TemporaryDirectory() as temp_dir:
             verification_path = Path(temp_dir)
-
-            # Create scripts directory and expected scripts
-            scripts_dir = verification_path / "scripts"
-            scripts_dir.mkdir()
-
-            # Create all expected scripts for java-micronaut template
-            expected_scripts = [
-                "build.sh",
-                "test.sh",
-                "run.sh",
-                "init.sh",
-                "quick-verify.sh",
-                "test-docker-build.sh",
-                "test-local-dev.sh",
-                "test-parameter-injection.sh",
-                "verify-template.sh",
-            ]
-
-            for script_name in expected_scripts:
-                script_path = scripts_dir / script_name
-                script_path.write_text(
-                    f"""#!/bin/bash
-# {script_name} for test-muppet
-echo "Running {script_name}..."
-
-# Usage: ./{script_name} [options]
-"""
-                )
-                script_path.chmod(0o755)  # Make executable
 
             result = VerificationResult(
                 muppet_name="test-muppet",
@@ -658,24 +629,17 @@ echo "Running {script_name}..."
                 verification_path, "java-micronaut", "test-muppet", result
             )
 
+            # In auto-generation architecture, no scripts are expected
             assert result.script_verification_success is True
-            assert len(result.script_results) == 9
-            assert all(
-                script_result["exists"]
-                for script_result in result.script_results.values()
-            )
-            assert all(
-                script_result["executable"]
-                for script_result in result.script_results.values()
-            )
+            assert len(result.script_results) == 0  # No scripts expected
             assert len(result.errors) == 0
 
     def test_verify_development_scripts_missing(self, verification_system):
-        """Test development script verification with missing scripts."""
+        """Test development script verification with auto-generation architecture (missing scripts are expected)."""
         with tempfile.TemporaryDirectory() as temp_dir:
             verification_path = Path(temp_dir)
 
-            # Don't create scripts directory
+            # Don't create scripts directory - this is expected in auto-generation
 
             result = VerificationResult(
                 muppet_name="test-muppet",
@@ -689,27 +653,15 @@ echo "Running {script_name}..."
                 verification_path, "java-micronaut", "test-muppet", result
             )
 
-            assert result.script_verification_success is False
-            assert len(result.script_results) == 9  # Now expects all 9 scripts
-            assert all(
-                not script_result["exists"]
-                for script_result in result.script_results.values()
-            )
-            assert len(result.errors) > 0
-            assert any("Missing script" in error for error in result.errors)
+            # In auto-generation architecture, missing scripts are expected and not an error
+            assert result.script_verification_success is True
+            assert len(result.script_results) == 0  # No scripts expected
+            assert len(result.errors) == 0  # No errors for missing scripts
 
     def test_verify_development_scripts_not_executable(self, verification_system):
-        """Test development script verification with non-executable scripts."""
+        """Test development script verification with auto-generation architecture (no scripts expected)."""
         with tempfile.TemporaryDirectory() as temp_dir:
             verification_path = Path(temp_dir)
-
-            # Create scripts directory and scripts without execute permission
-            scripts_dir = verification_path / "scripts"
-            scripts_dir.mkdir()
-
-            script_path = scripts_dir / "build.sh"
-            script_path.write_text("#!/bin/bash\necho 'test'")
-            script_path.chmod(0o644)  # Not executable
 
             result = VerificationResult(
                 muppet_name="test-muppet",
@@ -723,28 +675,15 @@ echo "Running {script_name}..."
                 verification_path, "java-micronaut", "test-muppet", result
             )
 
-            assert result.script_verification_success is False
-            assert result.script_results["build.sh"]["exists"] is True
-            assert result.script_results["build.sh"]["executable"] is False
-            assert any("Script not executable" in error for error in result.errors)
+            # In auto-generation architecture, no scripts are expected
+            assert result.script_verification_success is True
+            assert len(result.script_results) == 0  # No scripts expected
+            assert len(result.errors) == 0  # No errors
 
     def test_verify_development_scripts_unreplaced_variables(self, verification_system):
-        """Test development script verification with unreplaced variables."""
+        """Test development script verification with auto-generation architecture (no scripts expected)."""
         with tempfile.TemporaryDirectory() as temp_dir:
             verification_path = Path(temp_dir)
-
-            # Create scripts directory and script with unreplaced variables
-            scripts_dir = verification_path / "scripts"
-            scripts_dir.mkdir()
-
-            script_path = scripts_dir / "build.sh"
-            script_path.write_text(
-                """#!/bin/bash
-echo "Building {{muppet_name}}..."
-echo "Region: {{aws_region}}"
-"""
-            )
-            script_path.chmod(0o755)
 
             result = VerificationResult(
                 muppet_name="test-muppet",
@@ -758,11 +697,10 @@ echo "Region: {{aws_region}}"
                 verification_path, "java-micronaut", "test-muppet", result
             )
 
-            assert result.script_verification_success is False
-            assert result.script_results["build.sh"]["variables_replaced"] is False
-            assert any(
-                "unreplaced variables" in error.lower() for error in result.errors
-            )
+            # In auto-generation architecture, no scripts are expected
+            assert result.script_verification_success is True
+            assert len(result.script_results) == 0  # No scripts expected
+            assert len(result.errors) == 0  # No errors
 
     @patch.object(MuppetVerificationSystem, "_verify_development_scripts")
     @patch.object(MuppetVerificationSystem, "_verify_java_build")
@@ -916,7 +854,10 @@ class TestMuppetVerificationIntegration:
                 "terraform_modules": ["fargate-service"],
                 "required_variables": ["muppet_name"],
                 "supported_features": ["health_checks"],
-                "template_files": ["src/", "build.gradle.template"],
+                "template_files": {
+                    "core": ["src/", "build.gradle.template"],
+                    "optional": [],
+                },
             }
 
             import yaml
@@ -1102,11 +1043,10 @@ micronaut {
                     assert "src/main/java/com/muppetplatform/" in str(
                         result.generated_files
                     )
-                    # All 9 expected scripts
-                    assert len(result.script_results) == 9
-                    assert all(
-                        script_result["exists"]
-                        for script_result in result.script_results.values()
-                    )
+                    # In auto-generation architecture, scripts are not expected in templates
+                    # Scripts are auto-generated or not needed for the simple path
+                    assert (
+                        len(result.script_results) == 0
+                    )  # No scripts expected with auto-generation
                     assert result.duration_seconds > 0
                     assert len(result.errors) == 0

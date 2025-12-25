@@ -8,6 +8,7 @@ parameter injection, and code generation from templates.
 
 import re
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -17,6 +18,8 @@ import yaml
 from ..exceptions import PlatformException
 from ..logging_config import get_logger
 from ..models import Template
+from .auto_generator import AutoGenerator, GenerationConfig
+from .auto_generator import TemplateMetadata as AutoGenTemplateMetadata
 
 logger = get_logger(__name__)
 
@@ -207,6 +210,12 @@ class TemplateManager:
     - Template versioning and metadata management
     """
 
+    # Error messages
+    TEMPLATE_FORMAT_ERROR = (
+        "Template files configuration must be a dictionary with 'core' and 'optional' sections. "
+        "Found: {type_name}. Please update template.yaml to use the new format."
+    )
+
     def __init__(self, templates_root: Optional[Path] = None):
         """
         Initialize the template manager.
@@ -230,6 +239,7 @@ class TemplateManager:
             self.templates_root = Path(templates_root)
 
         self._template_cache: Dict[str, TemplateMetadata] = {}
+        self.auto_generator = AutoGenerator()
 
         logger.info(f"Template manager initialized with root: {self.templates_root}")
 
@@ -303,7 +313,7 @@ class TemplateManager:
 
     def validate_template(self, name: str) -> bool:
         """
-        Validate a template's structure and configuration.
+        Validate a template's structure and configuration for dual-path architecture.
 
         Args:
             name: Template name to validate
@@ -326,20 +336,77 @@ class TemplateManager:
         if not template_metadata.template.validate():
             errors.append("Basic template validation failed")
 
-        # Validate required files exist
-        template_files = getattr(template_metadata.template, "template_files", [])
-        for file_path in template_files:
-            full_path = template_metadata.template_path / file_path
-            if not full_path.exists():
-                errors.append(f"Required template file missing: {file_path}")
+        # Load template config to check structure
+        config_path = template_metadata.config_path
+        try:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            errors.append(f"Could not load template config: {e}")
+            template_metadata.validation_errors = errors
+            if errors:
+                error_msg = (
+                    f"Template validation failed for '{name}': {'; '.join(errors)}"
+                )
+                logger.error(error_msg)
+                raise TemplateValidationError(error_msg)
+            return True
 
-        # Validate Terraform modules are specified
-        if not template_metadata.template.terraform_modules:
-            errors.append("No Terraform modules specified")
+        # Validate dual-path architecture configuration
+        auto_generate = config.get("auto_generate", {})
+        if not isinstance(auto_generate, dict):
+            errors.append("auto_generate section must be a dictionary")
 
-        # Validate required variables are specified
-        if not template_metadata.template.required_variables:
-            errors.append("No required variables specified")
+        # Validate template files structure (enforce new dictionary format)
+        template_files_config = config.get("template_files", {})
+        if template_files_config:
+            # Enforce new dictionary format with core/optional sections
+            if not isinstance(template_files_config, dict):
+                raise TemplateValidationError(
+                    self.TEMPLATE_FORMAT_ERROR.format(
+                        type_name=type(template_files_config).__name__
+                    )
+                )
+
+            core_files = template_files_config.get("core", [])
+            optional_files = template_files_config.get("optional", [])
+
+            # Validate core files exist (these are always processed)
+            missing_core_files = []
+            for file_path in core_files:
+                full_path = template_metadata.template_path / file_path
+                if not full_path.exists() and not any(
+                    (template_metadata.template_path / p).exists()
+                    for p in template_metadata.template_path.rglob("*")
+                    if file_path.rstrip("/") in str(p)
+                ):
+                    missing_core_files.append(file_path)
+
+            if missing_core_files:
+                errors.append(
+                    f"Missing core template files: {', '.join(missing_core_files)}"
+                )
+
+            # Optional files are only validated if auto-generation is disabled
+            # We don't validate them here since they might be auto-generated
+
+        # Validate Java 21 LTS requirement for Java templates
+        if template_metadata.template.language == "java":
+            metadata = config.get("metadata", {})
+            java_version = metadata.get("java_version")
+            if java_version and java_version != "21":
+                errors.append(
+                    f"Java templates must use Java 21 LTS, found: {java_version}"
+                )
+
+        # Validate required variables are specified (for non-auto-generated templates)
+        if not auto_generate.get("infrastructure", True):
+            # Only validate terraform modules if infrastructure is not auto-generated
+            terraform_modules = config.get("terraform_modules", [])
+            if not terraform_modules:
+                errors.append(
+                    "No Terraform modules specified (required when auto_generate.infrastructure = false)"
+                )
 
         template_metadata.validation_errors = errors
 
@@ -353,7 +420,7 @@ class TemplateManager:
 
     def generate_code(self, context: GenerationContext) -> Path:
         """
-        Generate code from a template with parameter injection.
+        Generate code from a template with parameter injection and auto-generation.
 
         Args:
             context: Generation context with template name, parameters, and output path
@@ -368,6 +435,10 @@ class TemplateManager:
         logger.info(
             f"Generating code for muppet '{context.muppet_name}' using template '{context.template_name}'"
         )
+
+        # Ensure templates are discovered and cached
+        if context.template_name not in self._template_cache:
+            self.discover_templates()
 
         # Get template metadata
         template_metadata = self._template_cache.get(context.template_name)
@@ -389,9 +460,14 @@ class TemplateManager:
             # Get all template variables
             template_vars = context.get_all_variables()
 
-            # Process all template files
-            self._process_template_files(
+            # Process template files (application code and tests only)
+            self._process_simplified_template_files(
                 template_metadata.template_path, context.output_path, template_vars
+            )
+
+            # Auto-generate infrastructure, CI/CD, and Kiro configurations
+            self._auto_generate_configurations(
+                template_metadata, context.muppet_name, context.output_path
             )
 
             logger.info(
@@ -452,7 +528,7 @@ class TemplateManager:
                     {
                         "port": config.get("port", 3000),
                         "metadata": config.get("metadata", {}),
-                        "template_files": config.get("template_files", []),
+                        "template_files": config.get("template_files", {}),
                     }
                 )
 
@@ -465,22 +541,65 @@ class TemplateManager:
                 f"Failed to load template metadata from {template_yaml}: {e}"
             )
 
-    def _process_template_files(
+    def _process_simplified_template_files(
         self, template_path: Path, output_path: Path, variables: Dict[str, Any]
     ) -> None:
         """
-        Process all template files and generate output with parameter injection.
-
-        This method handles:
-        1. Directory name replacement ({{variable}} in directory names)
-        2. File name replacement ({{variable}} in file names)
-        3. File content replacement ({{variable}} in file contents)
+        Process template files for simplified (auto-generation) mode.
+        Only processes core application files, skips infrastructure/CI/CD files.
 
         Args:
             template_path: Path to template directory
             output_path: Path to output directory
             variables: Template variables for injection
         """
+        # Get template metadata to check auto-generation settings
+        template_name = variables.get("template_name", "")
+        template_metadata = self._template_cache.get(template_name)
+
+        if not template_metadata:
+            # Fallback to processing all files
+            self._process_template_files(template_path, output_path, variables)
+            return
+
+        # Load template config to check auto-generation settings
+        config_path = template_metadata.config_path
+        try:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            logger.warning(f"Could not load template config: {e}")
+            # Fallback to processing all files
+            self._process_template_files(template_path, output_path, variables)
+            return
+
+        # Determine which files to process based on auto-generation settings
+        auto_generate = config.get("auto_generate", {})
+        template_files_config = config.get("template_files", {})
+
+        # Enforce new dictionary format (core/optional sections)
+        if not isinstance(template_files_config, dict):
+            raise CodeGenerationError(
+                self.TEMPLATE_FORMAT_ERROR.format(
+                    type_name=type(template_files_config).__name__
+                )
+            )
+
+        # Always process core application files
+        core_files = template_files_config.get("core", [])
+        files_to_process = set(core_files)
+
+        # Only process optional files if auto-generation is disabled
+        optional_files = template_files_config.get("optional", [])
+        for optional_file in optional_files:
+            # Check if this file type should be auto-generated
+            should_auto_generate = self._should_auto_generate_file(
+                optional_file, auto_generate
+            )
+            if not should_auto_generate:
+                files_to_process.add(optional_file)
+
+        # Process only the determined files
         for item in template_path.rglob("*"):
             if item.is_file():
                 # Skip template.yaml and other metadata files
@@ -490,32 +609,189 @@ class TemplateManager:
                 # Calculate relative path from template root
                 rel_path = item.relative_to(template_path)
 
-                # Process path components (directories and filename) for variable replacement
-                processed_path_parts = []
-                for part in rel_path.parts:
-                    processed_part = self._replace_variables_in_string(part, variables)
-                    processed_path_parts.append(processed_part)
+                # Check if this file should be processed
+                should_process = False
+                for file_pattern in files_to_process:
+                    if self._matches_file_pattern(rel_path, file_pattern):
+                        should_process = True
+                        break
 
-                # Reconstruct the path with processed components
-                processed_rel_path = (
-                    Path(*processed_path_parts) if processed_path_parts else Path(".")
+                if not should_process:
+                    logger.debug(f"Skipping auto-generated file: {rel_path}")
+                    continue
+
+                # Process the file
+                self._process_single_template_file(
+                    item, output_path, variables, template_path
                 )
-                output_file = output_path / processed_rel_path
 
-                # Handle .template files (remove .template extension after processing)
-                if item.suffix == ".template":
-                    output_file = output_file.with_suffix("")
+    def _auto_generate_configurations(
+        self, template_metadata: TemplateMetadata, muppet_name: str, output_path: Path
+    ) -> None:
+        """
+        Auto-generate infrastructure, CI/CD, and Kiro configurations.
 
-                # Ensure output directory exists
-                output_file.parent.mkdir(parents=True, exist_ok=True)
+        Args:
+            template_metadata: Template metadata
+            muppet_name: Name of the muppet
+            output_path: Output directory path
+        """
+        # Load template config to check auto-generation settings
+        config_path = template_metadata.config_path
+        try:
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            logger.warning(f"Could not load template config for auto-generation: {e}")
+            return
 
-                # Process file based on content type
-                if item.suffix == ".template" or self._contains_template_syntax(item):
-                    # Template file - process with variable replacement
-                    self._process_template_file(item, output_file, variables)
-                else:
-                    # Regular file - copy and process for any embedded variables
-                    self._copy_and_process_file(item, output_file, variables)
+        auto_generate = config.get("auto_generate", {})
+
+        # Convert template metadata to auto-generator format
+        auto_gen_metadata = AutoGenTemplateMetadata(
+            name=template_metadata.template.name,
+            version=template_metadata.template.version,
+            description=template_metadata.template.description,
+            language=template_metadata.template.language,
+            framework=template_metadata.template.framework,
+            port=getattr(template_metadata.template, "port", 3000),
+            java_version=config.get("metadata", {}).get("java_version"),
+            java_distribution=config.get("metadata", {}).get("java_distribution"),
+            framework_version=config.get("metadata", {}).get("micronaut_version"),
+            build_tool="gradle",
+            features=template_metadata.template.supported_features or [],
+        )
+
+        # Create generation configuration
+        generation_config = GenerationConfig(
+            generate_infrastructure=auto_generate.get("infrastructure", True),
+            generate_cicd=auto_generate.get("cicd", True),
+            generate_kiro=auto_generate.get("kiro", True),
+            enable_tls=auto_generate.get("tls", True),
+        )
+
+        # Generate configurations
+        try:
+            if generation_config.generate_infrastructure:
+                self.auto_generator.generate_infrastructure(
+                    auto_gen_metadata, muppet_name, output_path, generation_config
+                )
+
+            if generation_config.generate_cicd:
+                self.auto_generator.generate_cicd(
+                    auto_gen_metadata, muppet_name, output_path, generation_config
+                )
+
+            if generation_config.generate_kiro:
+                self.auto_generator.generate_kiro_config(
+                    auto_gen_metadata, muppet_name, output_path, generation_config
+                )
+
+            logger.info(f"Auto-generation completed for {muppet_name}")
+
+        except Exception as e:
+            logger.error(f"Auto-generation failed for {muppet_name}: {e}")
+            raise CodeGenerationError(f"Auto-generation failed: {e}")
+
+    def _should_auto_generate_file(
+        self, file_path: str, auto_generate: Dict[str, bool]
+    ) -> bool:
+        """
+        Determine if a file should be auto-generated based on settings.
+
+        Args:
+            file_path: Relative file path
+            auto_generate: Auto-generation settings
+
+        Returns:
+            True if file should be auto-generated (and thus skipped from template)
+        """
+        # Map file patterns to auto-generation settings
+        file_mappings = {
+            "Dockerfile.template": "infrastructure",
+            "terraform/": "infrastructure",
+            ".github/workflows/": "cicd",
+            ".kiro/": "kiro",
+        }
+
+        for pattern, setting_key in file_mappings.items():
+            if pattern in file_path:
+                return auto_generate.get(setting_key, True)
+
+        # Default to not auto-generating (include in template processing)
+        return False
+
+    def _matches_file_pattern(self, file_path: Path, pattern: str) -> bool:
+        """
+        Check if a file path matches a pattern.
+
+        Args:
+            file_path: File path to check
+            pattern: Pattern to match against
+
+        Returns:
+            True if file matches pattern
+        """
+        file_str = str(file_path)
+
+        # Handle directory patterns
+        if pattern.endswith("/"):
+            return file_str.startswith(pattern) or f"/{pattern}" in file_str
+
+        # Handle exact file matches
+        if pattern in file_str:
+            return True
+
+        # Handle parent directory matches
+        return any(part == pattern.rstrip("/") for part in file_path.parts)
+
+    def _process_single_template_file(
+        self,
+        template_file: Path,
+        output_path: Path,
+        variables: Dict[str, Any],
+        template_root: Path,
+    ) -> None:
+        """
+        Process a single template file with variable replacement.
+
+        Args:
+            template_file: Path to template file
+            output_path: Base output directory
+            variables: Template variables for injection
+            template_root: Root template directory
+        """
+        # Calculate relative path and process variables in path
+        rel_path = template_file.relative_to(template_root)
+
+        # Process path components for variable replacement
+        processed_path_parts = []
+        for part in rel_path.parts:
+            processed_part = self._replace_variables_in_string(part, variables)
+            processed_path_parts.append(processed_part)
+
+        # Reconstruct the path with processed components
+        processed_rel_path = (
+            Path(*processed_path_parts) if processed_path_parts else Path(".")
+        )
+        output_file = output_path / processed_rel_path
+
+        # Handle .template files (remove .template extension after processing)
+        if template_file.suffix == ".template":
+            output_file = output_file.with_suffix("")
+
+        # Ensure output directory exists
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Process file based on content type
+        if template_file.suffix == ".template" or self._contains_template_syntax(
+            template_file
+        ):
+            # Template file - process with variable replacement
+            self._process_template_file(template_file, output_file, variables)
+        else:
+            # Regular file - copy and process for any embedded variables
+            self._copy_and_process_file(template_file, output_file, variables)
 
     def _replace_variables_in_string(self, text: str, variables: Dict[str, Any]) -> str:
         """

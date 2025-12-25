@@ -53,56 +53,204 @@ muppet-platform/
 
 ## Architecture
 
+The Muppet Platform implements a **"Simple by Default, Extensible by Choice"** architecture with **Layered Extensibility** that provides zero-config experience for 80% of developers while offering progressive levels of customization for power users.
+
+### Layered Extensibility Architecture
+
+The platform provides four distinct levels of infrastructure extensibility:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 4: Expert Mode (1% - Full Control)                   │
+│ ├── Custom OpenTofu files with platform integration        │
+│ ├── Multi-region deployments, complex networking           │
+│ └── Organization-specific compliance and security patterns │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 3: Module Extensions (4% - Custom Components)        │
+│ ├── Custom modules (Redis, databases, queues)              │
+│ ├── Organization-specific infrastructure patterns          │
+│ └── Additional AWS resources with platform integration     │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 2: Configuration Overrides (15% - Parameter-based)   │
+│ ├── Resource scaling (CPU, memory, auto-scaling limits)    │
+│ ├── Custom domains, monitoring settings, log retention     │
+│ └── Environment-specific configurations                    │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 1: Simple Path (80% - Zero Configuration)            │
+│ ├── Auto-generated infrastructure with platform standards  │
+│ ├── TLS, monitoring, security, compliance built-in         │
+│ └── Java 21 LTS enforcement and production-ready defaults  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Infrastructure Template Architecture
+
+**Template-Based Generation with Platform Standards:**
+- **Platform-managed base infrastructure** (security, TLS, monitoring, networking)
+- **Language-specific optimizations** (Java 21 LTS, JVM tuning, framework-specific configs)
+- **Muppet-level customization** through configuration files and extension points
+- **Expert-level control** with custom OpenTofu while preserving platform integration
+
+See [Layered Extensibility Architecture](layered-extensibility-architecture.md) for detailed implementation.
+
 ```mermaid
 graph TB
-    subgraph "Developer Environment"
-        K[Kiro IDE]
-        RD[Rancher Desktop]
-    end
-    
-    subgraph "Platform Core"
-        MCP[MCP Server]
-        PS[Platform Service]
-        TM[Template Manager]
-        GM[GitHub Manager]
-    end
-    
-    subgraph "AWS Infrastructure"
-        subgraph "Fargate Cluster"
-            PF[Platform Service Container]
-            M1[Muppet 1 Container]
-            M2[Muppet 2 Container]
-            MN[Muppet N Container]
+    subgraph "Developer Experience Layers"
+        subgraph "Simple Path (80%)"
+            SD[Simple Developer]
+            SK[Kiro IDE]
+            SMCP[Standard MCP Tools]
+            ZC[Zero Configuration]
         end
         
-        subgraph "Supporting Services"
-            CW[CloudWatch]
-            ECR[Shared Container Registry]
-            ALB[Application Load Balancer]
+        subgraph "Configuration Overrides (15%)"
+            CD[Configuration Developer]
+            CK[Kiro IDE + Config Tools]
+            CMCP[Configuration MCP Tools]
+            PC[Parameter-based Customization]
+        end
+        
+        subgraph "Module Extensions (4%)"
+            MD[Module Developer]
+            MK[Kiro IDE + Extension Tools]
+            MMCP[Extension MCP Tools]
+            CM[Custom Modules]
+        end
+        
+        subgraph "Expert Mode (1%)"
+            ED[Expert Developer]
+            EK[Kiro IDE + Expert Tools]
+            EMCP[Expert MCP Tools]
+            FC[Full Control]
         end
     end
     
-    subgraph "External Services"
-        GH[GitHub]
-        TR[Terraform Registry]
+    subgraph "Platform Infrastructure Generation"
+        subgraph "Template Processing"
+            AG[Auto-Generator]
+            ITP[Infrastructure Template Processor]
+            EXT[Extension Manager]
+            VAL[Validation Engine]
+        end
+        
+        subgraph "Template Layers"
+            BASE[Base Templates]
+            PLAT[Platform Standards]
+            LANG[Language-Specific]
+            CUST[Custom Extensions]
+        end
     end
     
-    K --> MCP
-    MCP --> PS
-    PS --> TM
-    PS --> GM
-    GM --> GH
-    TM --> TR
-    PS --> PF
-    PF --> M1
-    PF --> M2
-    PF --> MN
+    subgraph "Generated Infrastructure"
+        subgraph "AWS Fargate Cluster"
+            PF[Platform Service]
+            M1[Muppet 1 - Simple]
+            M2[Muppet 2 - Extended]
+            M3[Muppet 3 - Expert]
+        end
+        
+        subgraph "Platform Standards (All Muppets)"
+            TLS[TLS Termination]
+            MON[CloudWatch Monitoring]
+            SEC[Security & Compliance]
+            NET[Networking & Load Balancing]
+        end
+    end
     
-    PF --> CW
-    M1 --> CW
-    M2 --> CW
-    MN --> CW
+    %% Simple Path
+    SD --> SK
+    SK --> SMCP
+    SMCP --> ZC
+    ZC --> AG
+    
+    %% Configuration Path
+    CD --> CK
+    CK --> CMCP
+    CMCP --> PC
+    PC --> AG
+    
+    %% Extension Path
+    MD --> MK
+    MK --> MMCP
+    MMCP --> CM
+    CM --> EXT
+    
+    %% Expert Path
+    ED --> EK
+    EK --> EMCP
+    EMCP --> FC
+    FC --> EXT
+    
+    %% Template Processing
+    AG --> ITP
+    ITP --> BASE
+    BASE --> PLAT
+    PLAT --> LANG
+    LANG --> CUST
+    EXT --> VAL
+    VAL --> CUST
+    
+    %% Infrastructure Generation
+    CUST --> PF
+    CUST --> M1
+    CUST --> M2
+    CUST --> M3
+    
+    %% Platform Standards Applied to All
+    TLS --> M1
+    TLS --> M2
+    TLS --> M3
+    MON --> M1
+    MON --> M2
+    MON --> M3
+    SEC --> M1
+    SEC --> M2
+    SEC --> M3
+    NET --> M1
+    NET --> M2
+    NET --> M3
 ```
+
+### Infrastructure Template Management
+
+**Consolidated Template Architecture:**
+All infrastructure templates are managed centrally in `platform/infrastructure-templates/` with the following structure:
+
+```
+platform/infrastructure-templates/
+├── base/                           # Layer 1: Base Infrastructure
+│   ├── main.tf.template           # Core AWS resources (VPC, ALB, ECS, ECR)
+│   ├── variables.tf.template      # Standard variables with validation
+│   ├── outputs.tf.template        # Standard outputs
+│   └── versions.tf.template       # Provider requirements
+├── platform/                      # Layer 2: Platform Standards
+│   ├── security.tf.template       # Security baseline (TLS, WAF, headers)
+│   ├── monitoring.tf.template     # CloudWatch monitoring and alarms
+│   ├── tls.tf.template            # TLS certificate management
+│   └── compliance.tf.template     # Compliance and cost optimization
+├── templates/                      # Layer 3: Template Extensions
+│   ├── java/
+│   │   ├── fargate-java.tf.template    # Java-optimized Fargate (Java 21 LTS)
+│   │   ├── monitoring-java.tf.template # JVM-specific monitoring
+│   │   └── variables-java.tf.template  # Java-specific variables
+│   └── python/                     # Future: Python-specific templates
+└── extensions/                     # Layer 4: Extension Framework
+    ├── hooks/                      # Extension points for custom modules
+    ├── validators/                 # Custom validation rules
+    └── examples/                   # Extension examples and documentation
+```
+
+**Template Processing Flow:**
+1. **Base Infrastructure**: Core AWS resources with sensible defaults
+2. **Platform Standards**: Security, TLS, monitoring applied to all muppets
+3. **Language Optimization**: Java 21 LTS enforcement, JVM tuning, framework configs
+4. **Muppet Extensions**: Custom modules, overrides, and expert-mode customizations
+
+**Benefits:**
+- **Single Source of Truth**: All infrastructure templates in one location
+- **Platform Standards Enforcement**: Security, compliance, Java 21 LTS enforced consistently
+- **Progressive Extensibility**: Four levels of customization without breaking platform standards
+- **Maintainability**: Infrastructure evolution happens centrally with proper validation
 
 ## Components and Interfaces
 
@@ -182,42 +330,52 @@ The core orchestration service that manages muppet lifecycle and coordinates wit
 
 ### 3. Template Manager Component
 
-Manages muppet templates and handles code generation from templates. Located in the `templates/` directory. Designed to support multiple template types with a consistent interface.
+Manages muppet templates with **dual-path architecture**: simplified templates for zero-config experience and advanced templates for power users. Located in the `templates/` directory with support for both simple and extensible template types.
 
 **Key Responsibilities:**
-- Template storage and versioning for multiple template types
-- Code generation from any registered template
-- Template validation and testing across all templates
-- Custom parameter injection
-- Template development tooling
-- Template discovery and registration
+- Template discovery and validation for both simple and advanced templates
+- Auto-generation of infrastructure, CI/CD, and Kiro configurations for simple templates
+- Custom module integration and override support for power user templates
+- Progressive disclosure of complexity based on developer needs
+- Template inheritance and organization-specific customization
 
-**Template Structure (extensible for multiple templates):**
+**Simple Template Structure (Zero-Config):**
 
-Each template follows a consistent structure in `templates/{template-name}/`:
+For 80% of developers who want zero configuration:
 ```
-templates/{template-name}/
-├── template.yaml              # Template metadata and configuration
+templates/java-micronaut-simple/
+├── template.yaml              # Minimal metadata only
 ├── src/                       # Application source code template
-├── test/                      # Unit test templates for generated muppets
-├── Dockerfile.template        # Container configuration template
-├── terraform/                 # Muppet-specific OpenTofu (references shared modules)
 ├── scripts/                   # Development script templates
-├── .github/
-│   └── workflows/             # Shared reusable workflows for this template type
-│       ├── shared-ci.yml      # Centralized CI workflow logic
-│       ├── shared-deploy.yml  # Centralized deployment workflow logic
-│       └── shared-security.yml # Centralized security workflow logic
-├── .github-templates/         # Templates for muppet workflow files
-│   └── workflows/
-│       ├── ci.yml.template    # Minimal CI workflow that calls shared-ci.yml
-│       ├── deploy.yml.template # Minimal deploy workflow that calls shared-deploy.yml
-│       └── security.yml.template # Minimal security workflow that calls shared-security.yml
-├── .kiro/                     # Kiro configuration templates
-│   ├── settings/              # Kiro settings for muppet development
-│   └── steering/              # Development best practices and guides
-└── README.template.md         # Documentation template
+└── README.template.md         # Simple documentation
 ```
+
+**Advanced Template Structure (Power Users):**
+
+For 20% of developers who need full control:
+```
+templates/java-micronaut-advanced/
+├── template.yaml              # Extended metadata with hooks
+├── src/                       # Application source code template
+├── infrastructure/            # Custom OpenTofu modules
+│   ├── custom-modules/        # Organization-specific modules
+│   ├── overrides/             # Infrastructure overrides
+│   └── extensions/            # Extension points
+├── .github/                   # Custom workflow templates
+│   ├── workflows/             # Custom CI/CD logic
+│   └── templates/             # Workflow inheritance
+├── .kiro/                     # Advanced Kiro configuration
+│   ├── extensions/            # Custom extensions
+│   └── custom-tools/          # Organization-specific tools
+└── config/                    # Advanced configuration options
+```
+
+**Auto-Generation System:**
+The Template Manager includes an Auto-Generator component that creates all infrastructure, CI/CD, and Kiro configurations for simple templates:
+- **Infrastructure**: Complete OpenTofu configurations with TLS, monitoring, security
+- **CI/CD**: GitHub Actions workflows optimized for the template type
+- **Kiro Config**: Language servers, debugging, steering documentation
+- **Security**: TLS certificates, vulnerability scanning, compliance checks
 
 **Centralized Pipeline Management:**
 Each template maintains its own shared GitHub Actions workflows that provide centralized CI/CD logic:

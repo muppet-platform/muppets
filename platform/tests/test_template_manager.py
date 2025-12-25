@@ -42,14 +42,23 @@ class TestTemplateManager:
                 "language": "java",
                 "framework": "micronaut",
                 "port": 3000,
+                "metadata": {
+                    "java_version": "21",
+                    "java_distribution": "amazon-corretto",
+                },
+                "auto_generate": {"infrastructure": True, "cicd": True, "kiro": True},
                 "terraform_modules": ["fargate-service", "monitoring"],
                 "required_variables": ["muppet_name", "aws_region"],
                 "supported_features": ["health_checks", "metrics"],
-                "template_files": [
-                    "src/",
-                    "Dockerfile.template",
-                    "build.gradle.template",
-                ],
+                "template_files": {
+                    "core": [
+                        "src/",
+                        "build.gradle.template",
+                    ],
+                    "optional": [
+                        "Dockerfile.template",
+                    ],
+                },
             }
 
             with open(java_template_dir / "template.yaml", "w") as f:
@@ -154,7 +163,10 @@ class TestTemplateManager:
             "terraform_modules": ["fargate-service"],
             "required_variables": ["muppet_name"],
             "supported_features": ["health_checks"],
-            "template_files": ["missing-file.txt"],  # This file doesn't exist
+            "template_files": {
+                "core": ["missing-file.txt"],  # This file doesn't exist
+                "optional": [],
+            },
         }
 
         with open(invalid_template_dir / "template.yaml", "w") as f:

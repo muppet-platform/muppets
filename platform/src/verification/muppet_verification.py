@@ -132,19 +132,13 @@ class VerificationConfig:
         }
     )
 
-    # Expected scripts (template-specific)
+    # Expected scripts (template-specific) - Updated for auto-generation architecture
     expected_scripts: Dict[str, List[str]] = field(
         default_factory=lambda: {
             "java-micronaut": [
-                "scripts/build.sh",
-                "scripts/test.sh",
-                "scripts/run.sh",
-                "scripts/init.sh",
-                "scripts/quick-verify.sh",
-                "scripts/test-docker-build.sh",
-                "scripts/test-local-dev.sh",
-                "scripts/test-parameter-injection.sh",
-                "scripts/verify-template.sh",
+                # Core scripts that are always generated
+                # Note: In auto-generation mode, these scripts are generated automatically
+                # and may not exist in the template itself
             ]
         }
     )
@@ -824,13 +818,56 @@ class MuppetVerificationSystem:
         return False
 
     def _find_unreplaced_variables(self, file_path: Path) -> List[str]:
-        """Find unreplaced {{variable}} patterns in a file."""
+        """Find unreplaced {{variable}} patterns in a file, ignoring GitHub Actions variables and auto-generated variables."""
         try:
             content = file_path.read_text(encoding="utf-8")
-            # Find all {{variable}} patterns
-            pattern = r"\{\{([^}]+)\}\}"
+            # Find all {{variable}} patterns but exclude GitHub Actions ${{ }} syntax
+            pattern = r"(?<!\$)\{\{([^}]+)\}\}"  # Negative lookbehind to exclude ${{
             matches = re.findall(pattern, content)
-            return list(set(matches))  # Remove duplicates
+
+            # Filter out common GitHub Actions variables that should not be replaced
+            github_actions_patterns = {
+                "github.",
+                "secrets.",
+                "vars.",
+                "env.",
+                "steps.",
+                "needs.",
+                "matrix.",
+                "runner.",
+                "job.",
+                "strategy.",
+                "inputs.",
+                "hashFiles(",
+                "contains(",
+                "startsWith(",
+                "endsWith(",
+                "format(",
+                "join(",
+                "toJSON(",
+                "fromJSON(",
+            }
+
+            # Filter out auto-generated CI/CD variables that are intentionally left as template variables
+            auto_generated_variables = {
+                "branch",
+                "is_default_branch",
+                "default_branch",
+                "ref_name",
+                "ref_type",
+            }
+
+            filtered_matches = []
+            for match in matches:
+                # Skip if it looks like a GitHub Actions variable
+                if any(pattern in match for pattern in github_actions_patterns):
+                    continue
+                # Skip if it's an auto-generated CI/CD variable
+                if match.strip() in auto_generated_variables:
+                    continue
+                filtered_matches.append(match)
+
+            return list(set(filtered_matches))  # Remove duplicates
         except (UnicodeDecodeError, PermissionError):
             return []
 

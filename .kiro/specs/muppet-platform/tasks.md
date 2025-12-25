@@ -12,6 +12,8 @@ This implementation plan breaks down the Muppet Platform development into discre
 2. **Kiro-First Experience**: All primary workflows happen through Kiro MCP tools with intelligent assistance
 3. **No Deletion**: Muppets are permanent once created (following immutable infrastructure principles)
 4. **Infrastructure Abstraction**: Hide complexity while allowing power user customization
+5. **Automatic TLS Management**: All servers use TLS in Rancher and AWS environments with zero developer configuration required
+6. **Security by Default**: TLS termination at load balancer level with automatic certificate management
 
 ## Tasks
 
@@ -430,21 +432,25 @@ This implementation plan breaks down the Muppet Platform development into discre
     - Test power user extensibility features
     - _Requirements: All requirements_
 
-- [ ] 20. Final checkpoint - Complete platform validation
+- [ ] 21. Final checkpoint - Complete platform validation
   - Ensure all tests pass, ask the user if questions arise.
   - Validate simplified developer experience meets objectives
   - Confirm power user extensibility works as intended
   - Test enhanced Kiro integration provides seamless workflow
+  - Verify automatic TLS management works transparently across all environments
 
 - [ ] 18. Enhanced Kiro Integration and Developer Experience
   - [ ] 18.1 Implement enhanced MCP tools for seamless Kiro experience
-    - Create `create_muppet_workspace(name, template)` - Creates muppet and opens in Kiro
-    - Implement `deploy_muppet()` - One-click deployment from current Kiro workspace
-    - Add `tail_logs(follow=true)` - Live log streaming in Kiro terminal
-    - Create `run_tests(watch=false)` - Execute tests with results in Kiro
-    - Add `generate_api_client(language)` - Auto-generate API clients from OpenAPI spec
-    - Implement `scaffold_feature(feature_type)` - Generate common patterns (CRUD, auth, etc.)
-    - _Requirements: Enhanced developer experience, Kiro-first workflows_
+    - **PRIORITY**: Create dual-path MCP tools (simple vs power user)
+    - Implement `create_muppet_workspace(name, template)` with zero-config defaults
+    - Add `create_muppet_advanced(name, template, custom_config)` for power users
+    - Create `deploy_muppet()` with smart auto-detection of configuration
+    - Implement `extend_infrastructure(module_path)` for custom module integration
+    - Add `tail_logs(follow=true)` with intelligent log aggregation
+    - Create `run_tests(watch=false)` with auto-detected test frameworks
+    - Implement `scaffold_feature(feature_type)` for common patterns (CRUD, auth, etc.)
+    - Add progressive disclosure in MCP tool responses based on user expertise level
+    - _Requirements: Enhanced developer experience, Kiro-first workflows, dual-path architecture_
 
   - [ ] 18.2 Implement intelligent Kiro workspace configuration
     - Auto-configure language servers and extensions for muppet template type
@@ -470,28 +476,119 @@ This implementation plan breaks down the Muppet Platform development into discre
     - Create guided customization workflows
     - _Requirements: Simple by default, extensible by choice_
 
-- [ ] 19. Simplified Template System with Power User Extensions
-  - [ ] 19.1 Create simplified template structure for template developers
-    - Simplify template structure to focus on application code and tests
-    - Auto-generate all infrastructure, CI/CD, and Kiro configurations
-    - Provide template metadata system for simple customization
-    - Create template validation that focuses on code quality, not infrastructure
-    - _Requirements: Reduced template developer complexity_
+- [x] 19. Simplified Template System with Power User Extensions
+  - [x] 19.1 Create simplified template structure for template developers
+    - ✅ **COMPLETED**: Implemented dual-path template architecture (simple vs advanced)
+    - ✅ Enhanced existing java-micronaut template with auto-generation capabilities
+    - ✅ Implemented Auto-Generator component for infrastructure, CI/CD, and Kiro configuration generation
+    - ✅ Established progressive disclosure mechanism with auto_generate flags
+    - ✅ Created template validation that supports both simple and advanced modes
+    - ✅ Enforced Java 21 LTS requirements throughout auto-generated configurations
+    - _Requirements: Zero-config experience for 80% of developers, reduced template developer complexity_
 
-  - [ ] 19.2 Implement auto-generated infrastructure system
-    - Platform automatically generates all OpenTofu configurations
-    - Auto-generate all CI/CD workflows based on template type
-    - Create all Kiro configurations automatically
-    - Generate all deployment scripts and monitoring configurations
-    - Allow power user overrides through extension points
+  - [x] 19.2 Implement auto-generated infrastructure system
+    - ✅ Platform automatically generates complete OpenTofu configurations with TLS termination
+    - ✅ Auto-generate GitHub Actions workflows optimized for template type (Java, Python, etc.)
+    - ✅ Create comprehensive Kiro configurations with language servers and debugging
+    - ✅ Generate monitoring, logging, and security configurations automatically
+    - ✅ Implement smart defaults for all infrastructure components
+    - ✅ Allow power user overrides through extension points without breaking simple path
+    - ✅ Implemented template-based infrastructure generation with proper separation of concerns
+    - ✅ Created InfrastructureTemplateProcessor for maintainable template processing
+    - ✅ Enforced Java 21 LTS requirements throughout all generated components
+    - ✅ Comprehensive testing validates all infrastructure components are generated correctly
     - _Requirements: Zero infrastructure knowledge required for basic templates_
 
-  - [ ] 19.3 Create power user template extension system
-    - Allow custom OpenTofu modules to be integrated into templates
-    - Provide template inheritance system for organizational customization
-    - Create advanced template features for power users
-    - Implement template marketplace for sharing custom templates
-    - _Requirements: Extensibility for advanced use cases_
+  - [ ] 19.3 Implement layered extensibility architecture
+    - **REDESIGNED**: Implement 4-layer extensibility system for progressive infrastructure customization
+    - Create infrastructure template consolidation system (single source of truth)
+    - Implement configuration override system for parameter-based customization (Layer 2)
+    - Build custom module extension framework with platform integration (Layer 3)
+    - Create expert mode with full OpenTofu control while preserving platform standards (Layer 4)
+    - Add muppet-level configuration system (.muppet/infrastructure.yaml)
+    - Implement extension validation to ensure platform standards compliance
+    - _Requirements: Progressive extensibility from zero-config to full control_
+
+  - [ ] 19.4 Infrastructure template consolidation
+    - Consolidate infrastructure templates from templates/ to platform/infrastructure-templates/
+    - Remove duplicate terraform files from template directories
+    - Create base, platform, templates, and extensions directory structure
+    - Update InfrastructureTemplateProcessor to use consolidated templates
+    - Implement template validation and testing framework
+    - Create migration guide for template developers
+    - _Requirements: Single source of truth for infrastructure templates_
+
+  - [ ] 19.5 Configuration override system (Layer 2 - 15% of developers)
+    - Implement .muppet/infrastructure.yaml configuration system
+    - Create parameter-based override system (CPU, memory, scaling, domains)
+    - Add environment-specific configuration support
+    - Implement configuration validation against platform limits
+    - Create configuration UI/tooling for common overrides
+    - Add configuration testing and preview capabilities
+    - _Requirements: Easy customization without OpenTofu knowledge_
+
+  - [ ] 19.6 Custom module extension system (Layer 3 - 4% of developers)
+    - Implement custom module integration framework
+    - Create extension point system for additional AWS resources
+    - Build organization-specific module integration
+    - Add custom module validation and compatibility checking
+    - Implement extension testing framework
+    - Create extension marketplace and sharing system
+    - _Requirements: Add custom infrastructure while preserving platform standards_
+
+  - [ ] 19.7 Expert mode implementation (Layer 4 - 1% of developers)
+    - Implement expert mode with custom OpenTofu file support
+    - Create platform module integration system for expert mode
+    - Add expert-level validation and testing tools
+    - Implement multi-region and complex networking support
+    - Create expert mode documentation and examples
+    - Add expert mode migration tools from simpler layers
+    - _Requirements: Full control for complex infrastructure requirements_
+
+  - [ ] 19.8 Extension validation and safety system
+    - Implement platform standards enforcement across all extension layers
+    - Create extension validation framework (security, compliance, cost)
+    - Add Java 21 LTS enforcement across all extension levels
+    - Implement extension testing and regression testing
+    - Create extension impact analysis (performance, cost, security)
+    - Add extension rollback and migration capabilities
+    - _Requirements: Ensure platform standards maintained across all extension levels_
+
+- [ ] 20. Automatic TLS Management System
+  - [ ] 20.1 Implement automatic TLS certificate provisioning
+    - Integrate AWS Certificate Manager (ACM) for automatic certificate provisioning
+    - Configure automatic certificate validation using DNS validation
+    - Set up certificate renewal automation with zero downtime
+    - Create certificate management for both Rancher Desktop and AWS environments
+    - _Requirements: Zero TLS configuration complexity for developers_
+
+  - [ ] 20.2 Configure TLS termination at load balancer level
+    - Update Fargate service module to include ALB with TLS termination
+    - Configure HTTPS listeners with automatic HTTP to HTTPS redirect
+    - Implement TLS 1.2+ enforcement with secure cipher suites
+    - Add TLS configuration to shared infrastructure modules
+    - _Requirements: All servers use TLS in production environments_
+
+  - [ ] 20.3 Implement local development TLS support
+    - Generate self-signed certificates for Rancher Desktop environments
+    - Configure local development proxy with TLS termination
+    - Create development scripts that handle TLS certificate generation
+    - Provide seamless HTTPS experience in local development
+    - _Requirements: Consistent TLS experience across all environments_
+
+  - [ ] 20.4 Create TLS monitoring and alerting
+    - Implement certificate expiration monitoring with CloudWatch alarms
+    - Create automated alerts for certificate renewal failures
+    - Add TLS configuration validation to health checks
+    - Monitor TLS handshake performance and security metrics
+    - _Requirements: Proactive TLS management and monitoring_
+
+  - [ ] 20.5 Update templates for automatic TLS configuration
+    - Modify all templates to expect HTTPS endpoints by default
+    - Update health check endpoints to work with TLS termination
+    - Configure application logging to include TLS-related metrics
+    - Ensure all inter-service communication uses TLS
+    - _Requirements: TLS-first architecture across all muppets_
 
 ## Future Improvements
 

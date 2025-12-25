@@ -1,0 +1,81 @@
+# Java-optimized ECS Fargate configuration
+# Optimized for Java {{java_version}} LTS applications
+# Enforces Amazon Corretto 21 LTS as per platform requirements
+
+module "fargate_service" {
+  source = "{{terraform_modules_repo}}//fargate-service?ref={{fargate_module_version}}"
+  
+  service_name = "{{muppet_name}}"
+  cluster_name = var.cluster_name
+  
+  # Container configuration optimized for Java applications
+  container_image = var.ecr_repository_url != "" ? "${var.ecr_repository_url}:${var.image_tag}" : "${module.ecr.repository_url}:${var.image_tag}"
+  container_port  = {{port}}
+  
+  # Java application resource requirements (higher than default)
+  cpu    = var.cpu     # Minimum 1024 recommended for Java
+  memory = var.memory  # Minimum 2048 recommended for JVM
+  
+  # Java 21 LTS specific environment variables
+  environment_variables = {
+    # JVM optimization for containers with Java 21 LTS
+    JAVA_OPTS = "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication"
+    
+    # Java 21 LTS specific optimizations
+    JVM_ARGS = "-Djava.security.egd=file:/dev/./urandom -XX:+EnableDynamicAgentLoading"
+    
+    # Java version enforcement
+    JAVA_VERSION = "{{java_version}}"
+    JAVA_DISTRIBUTION = "amazon-corretto"
+    
+    # Application configuration
+    SERVER_PORT = "{{port}}"
+    SPRING_PROFILES_ACTIVE = var.environment
+    MICRONAUT_ENVIRONMENTS = var.environment
+  }
+  
+  # Auto-scaling configuration optimized for Java workloads
+  min_capacity = var.min_capacity
+  max_capacity = var.max_capacity
+  
+  # Conservative scaling for JVM applications (Java 21 LTS optimized)
+  target_cpu_utilization = var.target_cpu_utilization
+  target_memory_utilization = var.target_memory_utilization
+  
+  # Network configuration
+  vpc_id          = var.use_existing_vpc ? data.aws_vpc.existing[0].id : module.networking[0].vpc_id
+  private_subnets = var.use_existing_vpc ? data.aws_subnets.private[0].ids : module.networking[0].private_subnets
+  
+  # Load balancer integration
+  target_group_arn = module.alb.target_group_arn
+  
+  # Health check configuration for Java applications
+  health_check_path = "/health"
+  health_check_grace_period = 120  # Longer grace period for Java startup
+  health_check_interval = 30
+  health_check_timeout = 10
+  healthy_threshold = 2
+  unhealthy_threshold = 3
+  
+  # Readiness and liveness probes (Micronaut/Spring Boot standard)
+  readiness_check_path = "/health/readiness"
+  liveness_check_path = "/health/liveness"
+  
+  # Java-specific monitoring
+  enable_jvm_metrics = true
+  enable_gc_metrics = true
+  enable_thread_metrics = true
+  
+  # Security configuration
+  enable_execute_command = var.enable_ecs_exec
+  
+  # Service discovery
+  enable_service_discovery = true
+  service_discovery_namespace = var.service_discovery_namespace
+  
+  tags = merge(local.common_tags, {
+    JavaVersion = "{{java_version}}-LTS"
+    JavaDistribution = "amazon-corretto"
+    JVMOptimized = "true"
+  })
+}
