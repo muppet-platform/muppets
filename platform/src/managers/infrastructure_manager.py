@@ -396,7 +396,7 @@ class InfrastructureManager:
         for item in self.terraform_modules_path.iterdir():
             if item.is_dir() and not item.name.startswith("."):
                 # Check if it's a valid Terraform module
-                if (item / "main.t").exists() or (item / "variables.t").exists():
+                if (item / "main.tf").exists() or (item / "variables.tf").exists():
                     modules.append(item.name)
 
         logger.debug(f"Found {len(modules)} available modules: {modules}")
@@ -812,7 +812,7 @@ variable "response_time_alarm_threshold" {
             env_vars_tf += f'    "{key}" = "{value}"\n'
         env_vars_tf += "  }"
 
-        return """# Terraform variables for {config.muppet_name}
+        return f"""# Terraform variables for {config.muppet_name}
 
 # Basic Configuration
 muppet_name   = "{config.muppet_name}"
@@ -852,9 +852,9 @@ health_check_path = "{config.fargate_config.get('health_check_path', '/health')}
 log_retention_days = {config.monitoring_config.get('log_retention_days', 7)}
 
 # Monitoring
-enable_monitoring_alarms      = {str(config.monitoring_config.get('enable_alarms', True)).lower()}
-cpu_alarm_threshold          = {config.monitoring_config.get('cpu_alarm_threshold', 80)}
-memory_alarm_threshold       = {config.monitoring_config.get('memory_alarm_threshold', 85)}
+enable_monitoring_alarms = {str(config.monitoring_config.get('enable_alarms', True)).lower()}
+cpu_alarm_threshold = {config.monitoring_config.get('cpu_alarm_threshold', 80)}
+memory_alarm_threshold = {config.monitoring_config.get('memory_alarm_threshold', 85)}
 response_time_alarm_threshold = {config.monitoring_config.get('response_time_alarm_threshold', 2.0)}
 """
 

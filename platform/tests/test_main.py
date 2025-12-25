@@ -12,13 +12,21 @@ from fastapi.testclient import TestClient
 
 from src.config import get_settings
 from src.main import create_app
+from src.state_manager import get_state_manager
 
 
 @pytest.fixture
 def client():
     """Create a test client for the FastAPI application."""
-    app = create_app()
-
+    from src.main import app
+    
+    # Mock the state manager dependency at the app level
+    mock_state_manager = AsyncMock()
+    mock_state_manager.get_muppet = AsyncMock(return_value=None)
+    
+    # Override the dependency
+    app.dependency_overrides[get_state_manager] = lambda: mock_state_manager
+    
     # Mock the lifecycle service to avoid state manager issues
     with patch(
         "src.services.muppet_lifecycle_service.MuppetLifecycleService"
@@ -41,6 +49,9 @@ def client():
 
         with TestClient(app) as test_client:
             yield test_client
+            
+        # Clean up dependency overrides
+        app.dependency_overrides.clear()
 
 
 def test_app_creation():
