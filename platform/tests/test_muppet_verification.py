@@ -963,7 +963,7 @@ echo "Building {{muppet_name}}..."
 ./gradlew shadowJar
 """,
                 "test.sh": """#!/bin/bash
-# {{muppet_name}} Test Script  
+# {{muppet_name}} Test Script
 echo "Testing {{muppet_name}}..."
 ./gradlew test
 """,
