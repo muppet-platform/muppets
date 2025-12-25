@@ -6,7 +6,7 @@ for templates, allowing template developers to focus only on application code an
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -42,11 +42,11 @@ class TemplateMetadata:
     build_tool: Optional[str] = None
 
     # Features that affect generation
-    features: List[str] = None
+    features: List[str] = field(default_factory=list)
 
     def __post_init__(self):
-        if self.features is None:
-            self.features = []
+        # No need to check features since it's initialized with default_factory
+        pass
 
 
 @dataclass
@@ -55,15 +55,15 @@ class GenerationConfig:
 
     # Infrastructure generation
     generate_infrastructure: bool = True
-    infrastructure_modules: List[str] = None
+    infrastructure_modules: List[str] = field(default_factory=list)
 
     # CI/CD generation
     generate_cicd: bool = True
-    cicd_features: List[str] = None
+    cicd_features: List[str] = field(default_factory=list)
 
     # Kiro generation
     generate_kiro: bool = True
-    kiro_features: List[str] = None
+    kiro_features: List[str] = field(default_factory=list)
 
     # TLS configuration
     enable_tls: bool = True
