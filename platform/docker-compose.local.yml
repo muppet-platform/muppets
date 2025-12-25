@@ -44,7 +44,7 @@ services:
     volumes:
       - "./src:/app/src"  # Mount source for hot reload
       - "../templates:/app/templates"  # Mount templates directory
-    command: ["sh", "-c", "pip install aiofiles==23.2.1 && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"]
+    command: ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 volumes:
   localstack-data:
