@@ -118,8 +118,17 @@ jobs:
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
+      continue-on-error: true
       with:
         sarif_file: 'trivy-results.sarif'
+        
+    - name: Upload Trivy SARIF as artifact (fallback)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: trivy-sarif-results
+        path: trivy-results.sarif
+        retention-days: 30
         
     - name: Run Trivy vulnerability scanner (JSON output)
       uses: aquasecurity/trivy-action@master
@@ -160,8 +169,17 @@ jobs:
     - name: Upload tfsec scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
+      continue-on-error: true
       with:
         sarif_file: 'results.sarif'
+        
+    - name: Upload tfsec SARIF as artifact (fallback)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: tfsec-sarif-results
+        path: results.sarif
+        retention-days: 30
         
     - name: Run Checkov security scanner
       run: |

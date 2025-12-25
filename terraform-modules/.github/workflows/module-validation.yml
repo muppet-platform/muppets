@@ -124,11 +124,20 @@ jobs:
         output_format: sarif
         output_file_path: checkov-results.sarif
         
-    - name: Upload Checkov scan results
-      uses: github/codeql-action/upload-sarif@v2
+    - name: Upload Checkov scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
+      continue-on-error: true
       with:
         sarif_file: checkov-results.sarif
+        
+    - name: Upload Checkov SARIF as artifact (fallback)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: checkov-sarif-results
+        path: checkov-results.sarif
+        retention-days: 30
         
     - name: Run TFSec security scanner
       uses: aquasecurity/tfsec-action@v1.0.3
@@ -136,11 +145,20 @@ jobs:
         working_directory: terraform-modules/
         format: sarif
         
-    - name: Upload TFSec scan results
-      uses: github/codeql-action/upload-sarif@v2
+    - name: Upload TFSec scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      continue-on-error: true
+      with:
+        sarif_file: results.sarif
+        
+    - name: Upload TFSec SARIF as artifact (fallback)
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        sarif_file: tfsec.sarif
+        name: tfsec-sarif-results
+        path: results.sarif
+        retention-days: 30
 
   test-modules:
     name: Test OpenTofu Modules

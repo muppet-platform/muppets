@@ -34,6 +34,8 @@ dev = [
     "flake8==6.1.0",
     "mypy==1.7.1",
     "moto==4.2.14",
+    "bandit>=1.7.5",
+    "safety>=3.0.0",
 ]
 
 [project.scripts]
@@ -72,6 +74,7 @@ asyncio_mode = "auto"
 dev = [
     "autoflake>=2.3.1",
     "autopep8>=2.2.0",
+    "bandit>=1.7.5",
     "black>=23.11.0",
     "flake8>=6.1.0",
     "isort>=5.12.0",
@@ -80,4 +83,5 @@ dev = [
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
+    "safety>=3.0.0",
 ]
