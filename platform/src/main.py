@@ -131,7 +131,7 @@ if __name__ == "__main__":
     settings = get_settings()
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host=settings.host,  # Use configurable host instead of hardcoded 0.0.0.0
         port=settings.port,
         reload=settings.debug,
         log_level=settings.log_level.lower(),

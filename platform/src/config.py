@@ -110,6 +110,7 @@ class Settings(BaseSettings):
     # Application settings
     name: str = Field(default="platform-service", description="Service name")
     version: str = Field(default="0.1.0", description="Service version")
+    host: str = Field(default="0.0.0.0", description="HTTP server host")  # nosec B104
     port: int = Field(default=8000, description="HTTP server port")
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")

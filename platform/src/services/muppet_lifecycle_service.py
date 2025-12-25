@@ -189,16 +189,16 @@ class MuppetLifecycleService:
             # Update muppet status to error if it was added to state
             try:
                 await self.state_manager.update_muppet_status(name, MuppetStatus.ERROR)
-            except Exception:
-                pass
+            except Exception as state_error:
+                logger.warning(f"Failed to update muppet status to ERROR: {state_error}")
             raise
         except Exception as e:
             logger.error(f"Unexpected error creating muppet {name}: {e}")
             # Update muppet status to error if it was added to state
             try:
                 await self.state_manager.update_muppet_status(name, MuppetStatus.ERROR)
-            except Exception:
-                pass
+            except Exception as state_error:
+                logger.warning(f"Failed to update muppet status to ERROR: {state_error}")
             raise PlatformException(
                 message=f"Muppet creation failed: {str(e)}",
                 error_type="MUPPET_CREATION_ERROR",

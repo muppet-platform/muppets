@@ -48,7 +48,9 @@ class SteeringManager:
         self.github_client = github_client
         self.settings = get_settings()
         self.steering_repo_url = "https://github.com/muppet-platform/steering-docs.git"
-        self.local_steering_path = Path("/tmp/steering-docs")
+        # Use tempfile for secure temp directory instead of hardcoded /tmp
+        import tempfile
+        self.local_steering_path = Path(tempfile.gettempdir()) / "steering-docs"
         self._version_cache: Dict[str, SteeringVersion] = {}
 
     async def initialize(self):

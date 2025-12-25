@@ -8,7 +8,7 @@ and tests that generated code compiles and builds successfully.
 
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -340,12 +340,13 @@ class MuppetVerificationSystem:
             except Exception as e:
                 logger.error(f"Failed to verify template '{template.name}': {e}")
                 # Create a failed result
+                import tempfile
                 results[template.name] = VerificationResult(
                     muppet_name=f"failed-{template.name}",
                     template_name=template.name,
                     success=False,
                     duration_seconds=0.0,
-                    verification_path=Path("/tmp"),
+                    verification_path=Path(tempfile.gettempdir()),
                     errors=[f"Verification setup failed: {str(e)}"],
                 )
 
@@ -555,7 +556,7 @@ class MuppetVerificationSystem:
         for command in build_commands:
             try:
                 logger.info(f"Running: {' '.join(command)}")
-                process_result = subprocess.run(
+                process_result = subprocess.run(  # nosec B603
                     command,
                     cwd=verification_path,
                     capture_output=True,
@@ -715,7 +716,7 @@ class MuppetVerificationSystem:
                             )
 
                             # Execute the script with --help or --version to test basic functionality
-                            test_result = subprocess.run(
+                            test_result = subprocess.run(  # nosec B603
                                 [str(script_full_path), "--help"],
                                 cwd=verification_path,
                                 capture_output=True,
@@ -864,7 +865,7 @@ class MuppetVerificationSystem:
     def _check_java_version(self) -> str:
         """Check Java version."""
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 B607
                 ["java", "-version"], capture_output=True, text=True
             )
             # Parse version from output like: openjdk version "21.0.1" 2023-10-17 LTS

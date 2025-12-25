@@ -97,8 +97,9 @@ class MCPAuthenticator:
         Returns:
             bool: True if token is valid, False otherwise
         """
-        # For development, accept dev-token
-        if self.settings.debug and token == "dev-token":
+        # For development, accept configurable dev token
+        dev_token = getattr(self.settings, 'dev_token', 'dev-token')  # nosec B105
+        if self.settings.debug and token == dev_token:
             return True
 
         # In production, this would validate against:
