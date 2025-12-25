@@ -385,7 +385,7 @@ class InfrastructureManager:
         Returns:
             List of module names
         """
-        modules = []
+        modules: List[str] = []
 
         if not self.terraform_modules_path.exists():
             logger.warning(
@@ -898,7 +898,7 @@ response_time_alarm_threshold = {config.monitoring_config.get('response_time_ala
                 success=process.returncode == 0,
                 stdout=stdout.decode("utf-8"),
                 stderr=stderr.decode("utf-8"),
-                exit_code=process.returncode,
+                exit_code=process.returncode or 0,
                 operation=operation,
             )
 

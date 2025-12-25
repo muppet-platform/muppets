@@ -6,7 +6,7 @@ allowing external clients to interact with the platform's MCP functionality.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -28,7 +28,7 @@ class MCPToolResponse(BaseModel):
 
     success: bool
     result: Dict[str, Any]
-    error: str = None
+    error: Optional[str] = None
 
 
 def get_mcp_tool_registry():

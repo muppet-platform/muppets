@@ -167,10 +167,10 @@ class Template:
     required_variables: List[str]
     supported_features: List[str]
     port: int = 3000
-    metadata: Dict[str, Any] = None
-    template_files: List[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    template_files: Optional[List[str]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize default values for optional fields."""
         if self.metadata is None:
             self.metadata = {}

@@ -88,6 +88,9 @@ class MuppetDeletionResponse(BaseModel):
     steps_failed: List[Dict[str, str]]
     warnings: List[str]
     deletion_completed_at: str
+
+
+class MuppetInfo(BaseModel):
     """Basic muppet information model."""
 
     name: str
@@ -221,7 +224,7 @@ async def create_muppet(
         creation_result = await lifecycle_service.create_muppet(
             name=creation_request.name,
             template=creation_request.template,
-            description=creation_request.description,
+            description=creation_request.description or "",
             auto_deploy=creation_request.auto_deploy,
             deployment_config=creation_request.deployment_config,
         )
