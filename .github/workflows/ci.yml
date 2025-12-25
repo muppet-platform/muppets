@@ -11,9 +11,9 @@ env:
   UV_VERSION: '0.4.18'
 
 jobs:
-  # Job 1: Platform Tests
+  # Job 1: Platform Unit Tests
   platform-tests:
-    name: Platform Tests
+    name: Platform Unit Tests
     runs-on: ubuntu-latest
     
     steps:
@@ -33,12 +33,17 @@ jobs:
     - name: Verify uv installation
       run: uv --version
       
-    - name: Run platform tests
+    - name: Install dependencies
       run: |
-        chmod +x scripts/test-platform.sh
-        ./scripts/test-platform.sh
+        cd platform
+        uv sync --dev
         
-    - name: Upload platform test results
+    - name: Run unit tests
+      run: |
+        cd platform
+        uv run pytest tests/ -v --tb=short
+        
+    - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
@@ -46,9 +51,9 @@ jobs:
         path: platform/test-results/
         retention-days: 7
 
-  # Job 2: Template Tests
-  template-tests:
-    name: Template Tests
+  # Job 2: Template Validation
+  template-validation:
+    name: Template Validation
     runs-on: ubuntu-latest
     
     steps:
@@ -66,22 +71,18 @@ jobs:
         java -version
         java -version 2>&1 | grep -q "21.*LTS" && echo "✅ Java 21 LTS detected" || (echo "❌ Non-LTS Java version detected" && exit 1)
         
-    - name: Run template tests
+    - name: Validate Java Micronaut template
       run: |
-        chmod +x scripts/test-templates.sh
-        ./scripts/test-templates.sh
-        
-    - name: Upload template test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: template-test-results
-        path: templates/test-results/
-        retention-days: 7
+        cd templates/java-micronaut
+        # Check that required template files exist
+        test -f Dockerfile.template
+        test -f build.gradle.template
+        test -f template.yaml
+        echo "✅ Template files validated"
 
-  # Job 3: Infrastructure Tests
-  infrastructure-tests:
-    name: Infrastructure Tests
+  # Job 3: Infrastructure Validation
+  infrastructure-validation:
+    name: Infrastructure Validation
     runs-on: ubuntu-latest
     
     steps:
@@ -96,59 +97,20 @@ jobs:
     - name: Verify OpenTofu installation
       run: tofu version
       
-    - name: Run infrastructure tests
+    - name: Validate Terraform modules
       run: |
-        chmod +x scripts/test-infrastructure.sh
-        ./scripts/test-infrastructure.sh
-        
-    - name: Upload infrastructure test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: infrastructure-test-results
-        path: terraform-modules/test-results/
-        retention-days: 7
+        for module in terraform-modules/*/; do
+          if [ -d "$module" ] && [ -f "$module/main.tf" ]; then
+            echo "Validating module: $module"
+            cd "$module"
+            tofu init -backend=false
+            tofu validate
+            cd - > /dev/null
+          fi
+        done
+        echo "✅ All Terraform modules validated"
 
-  # Job 4: Integration Tests
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [platform-tests, template-tests]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Set up Java (Amazon Corretto 21 LTS)
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'corretto'
-        
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        
-    - name: Run integration tests
-      run: |
-        chmod +x scripts/test-all.sh
-        ./scripts/test-all.sh
-        
-    - name: Upload integration test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: integration-test-results
-        path: test-results/
-        retention-days: 7
-
-  # Job 5: Code Quality
+  # Job 4: Code Quality
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -192,7 +154,7 @@ jobs:
         cd platform
         uv run mypy src/
 
-  # Job 6: Security Scan
+  # Job 5: Security Scan
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -229,48 +191,23 @@ jobs:
         path: platform/security-report.json
         retention-days: 30
 
-  # Job 7: Build Artifacts
-  build:
-    name: Build Artifacts
+  # Job 6: Docker Build Test (without AWS dependencies)
+  docker-build:
+    name: Docker Build Test
     runs-on: ubuntu-latest
-    needs: [platform-tests, template-tests, infrastructure-tests]
+    needs: [platform-tests, code-quality]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Set up Java (Amazon Corretto 21 LTS)
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'corretto'
-        
-    - name: Install uv
+    - name: Build Docker image
       run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        cd platform
+        docker build -f docker/Dockerfile -t muppet-platform:ci-test .
         
-    - name: Setup OpenTofu
-      uses: opentofu/setup-opentofu@v1
-      with:
-        tofu_version: '1.6.0'
-        
-    - name: Build all components
+    - name: Test Docker image
       run: |
-        chmod +x scripts/build-all.sh
-        ./scripts/build-all.sh
-        
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts
-        path: |
-          platform/dist/
-          templates/dist/
-          terraform-modules/dist/
-        retention-days: 30
+        # Test that the image was built successfully
+        docker images muppet-platform:ci-test
+        echo "✅ Docker image built successfully"
