@@ -124,7 +124,7 @@ fi
 #### Build Tool Compatibility
 - **Gradle**: Use versions 8.5+ for full Java 21 LTS support
 - **Micronaut Plugin**: Use version 4.0.4+ for Java 21 LTS compatibility
-- **Shadow Plugin**: Use version 7.1.2 for stable fat JAR creation
+- **JaCoCo**: Use version 0.8.11+ for Java 21 LTS compatibility
 - **Maven**: Use version 3.9.0+ if using Maven instead of Gradle
 
 ### Common Issues with Non-LTS Versions

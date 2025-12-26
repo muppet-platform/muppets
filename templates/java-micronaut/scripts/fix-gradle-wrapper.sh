@@ -169,7 +169,7 @@ tasks.named("shadowJar") {
 }
 
 jacoco {
-    toolVersion = "0.8.8"
+    toolVersion = "0.8.11"
 }
 
 jacocoTestReport {
@@ -439,7 +439,7 @@ tasks.named("shadowJar") {
 }
 
 jacoco {
-    toolVersion = "0.8.8"
+    toolVersion = "0.8.11"
 }
 
 jacocoTestReport {
