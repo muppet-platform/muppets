@@ -27,7 +27,7 @@ class StateManager:
     State is updated when muppets are created, updated, or deleted.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = get_settings()
         self.github_client = GitHubClient()
         self.parameter_store = ParameterStoreClient()

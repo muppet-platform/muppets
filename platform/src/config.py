@@ -5,6 +5,7 @@ This module defines all configuration settings with proper validation,
 environment variable support, and default values.
 """
 
+import os
 from functools import lru_cache
 from typing import List, Optional
 
@@ -31,7 +32,6 @@ class AWSConfig(BaseSettings):
     )
 
     @computed_field
-    @property
     def account_id(self) -> str:
         """
         Dynamically get AWS account ID from current credentials.
@@ -40,17 +40,15 @@ class AWSConfig(BaseSettings):
         and when deployed to AWS (using IAM roles).
         """
         try:
-            # Import here to avoid circular imports
-            from . import get_settings
-
-            settings = get_settings()
+            import boto3
 
             # Configure STS client based on environment
             client_config = {"region_name": self.region}
 
             # Use LocalStack endpoint if configured (for local development)
-            if settings.aws_endpoint_url:
-                client_config["endpoint_url"] = settings.aws_endpoint_url
+            aws_endpoint_url = os.getenv("AWS_ENDPOINT_URL")
+            if aws_endpoint_url:
+                client_config["endpoint_url"] = aws_endpoint_url
 
             sts_client = boto3.client("sts", **client_config)
             response = sts_client.get_caller_identity()
