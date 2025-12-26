@@ -93,9 +93,9 @@ if [ "$NUCLEAR_OPTION" = true ]; then
     echo "📝 Creating fresh build.gradle..."
     cat > build.gradle << EOF
 plugins {
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'io.micronaut.application' version '4.0.4'
-    id 'io.micronaut.test-resources' version '4.0.4'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'io.micronaut.application' version '4.4.4'
+    id 'jacoco'
 }
 
 version = "1.0.0"
@@ -167,11 +167,36 @@ tasks.named("test") {
 tasks.named("shadowJar") {
     mergeServiceFiles()
 }
+
+jacoco {
+    toolVersion = "0.8.8"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    finalizedBy jacocoTestCoverageVerification
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.80
+            }
+        }
+    }
+}
+
+test.finalizedBy jacocoTestReport
 EOF
 
     echo "📝 Creating fresh gradle.properties..."
     cat > gradle.properties << 'EOF'
-micronautVersion=4.0.4
+micronautVersion=4.4.4
 EOF
 
     echo "📝 Creating fresh settings.gradle..."
@@ -204,7 +229,7 @@ gradlew.bat text eol=crlf
 EOF
 
     echo "🔄 Generating fresh Gradle wrapper..."
-    gradle wrapper --gradle-version 8.5 --distribution-type bin
+    gradle wrapper --gradle-version 8.10.2 --distribution-type bin
     chmod +x ./gradlew
     
     echo "🧪 Testing nuclear reset..."
@@ -286,7 +311,7 @@ fi
 
 # Generate new wrapper
 echo "🔄 Generating new Gradle wrapper..."
-if ! gradle wrapper --gradle-version 8.5 --distribution-type bin; then
+if ! gradle wrapper --gradle-version 8.10.2 --distribution-type bin; then
     echo "❌ Failed to generate Gradle wrapper"
     echo ""
     echo "Debugging information:"
@@ -338,9 +363,9 @@ if ./gradlew --version >/dev/null 2>&1; then
         # Create updated build.gradle with current template
         cat > build.gradle << EOF
 plugins {
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'io.micronaut.application' version '4.0.4'
-    id 'io.micronaut.test-resources' version '4.0.4'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'io.micronaut.application' version '4.4.4'
+    id 'jacoco'
 }
 
 version = "1.0.0"
@@ -412,6 +437,31 @@ tasks.named("test") {
 tasks.named("shadowJar") {
     mergeServiceFiles()
 }
+
+jacoco {
+    toolVersion = "0.8.8"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    finalizedBy jacocoTestCoverageVerification
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.80
+            }
+        }
+    }
+}
+
+test.finalizedBy jacocoTestReport
 EOF
         
         echo "✅ Updated build.gradle to current template version"
