@@ -648,23 +648,29 @@ class MuppetLifecycleService:
                         with open(file_path, "r", encoding="utf-8") as f:
                             content = f.read()
                             template_files[str(relative_path)] = content
-                            logger.debug(f"Collected file: {relative_path} ({len(content)} chars)")
+                            logger.debug(
+                                f"Collected file: {relative_path} ({len(content)} chars)"
+                            )
                     except UnicodeDecodeError:
                         # Handle binary files
                         with open(file_path, "rb") as f:
                             content = f.read()
                             template_files[str(relative_path)] = content
-                            logger.debug(f"Collected binary file: {relative_path} ({len(content)} bytes)")
+                            logger.debug(
+                                f"Collected binary file: {relative_path} ({len(content)} bytes)"
+                            )
 
             logger.info(f"Generated {len(template_files)} files for muppet {name}")
-            
+
             # Log workflow files specifically
-            workflow_files = [f for f in template_files.keys() if '.github/workflows' in f]
+            workflow_files = [
+                f for f in template_files.keys() if ".github/workflows" in f
+            ]
             if workflow_files:
                 logger.info(f"Generated workflow files: {workflow_files}")
             else:
                 logger.warning("No workflow files found in generated template files")
-                
+
             return template_files
 
     async def _setup_muppet_development_environment(

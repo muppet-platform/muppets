@@ -283,7 +283,7 @@ class DeploymentService:
             # Update ECS service desired count
             ecs_client = await get_ecs_client()
 
-            response = await ecs_client.update_service(
+            await ecs_client.update_service(
                 cluster=cluster_name, service=service_arn, desiredCount=desired_count
             )
 

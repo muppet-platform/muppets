@@ -175,7 +175,7 @@ class TestInfrastructureManager:
 
         # Check common tags
         assert 'Project     = "muppet-platform"' in main_tf_content
-        assert f"Muppet      = var.muppet_name" in main_tf_content
+        assert "Muppet      = var.muppet_name" in main_tf_content
 
     def test_generate_variables_tf(self, infrastructure_manager, sample_config):
         """Test variables.tf generation."""
