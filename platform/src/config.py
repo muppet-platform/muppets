@@ -40,8 +40,6 @@ class AWSConfig(BaseSettings):
         and when deployed to AWS (using IAM roles).
         """
         try:
-            import boto3
-
             # Configure STS client based on environment
             client_config = {"region_name": self.region}
 
