@@ -37,6 +37,7 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-west-2
+      - INTEGRATION_MODE=real
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
     depends_on:
       localstack:

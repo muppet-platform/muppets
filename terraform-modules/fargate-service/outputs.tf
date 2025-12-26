@@ -108,8 +108,29 @@ output "autoscaling_target_resource_id" {
   value       = var.enable_autoscaling ? aws_appautoscaling_target.ecs_target[0].resource_id : null
 }
 
-# Service URL
+# Service URLs
 output "service_url" {
-  description = "URL to access the service"
+  description = "HTTP URL to access the service"
   value       = var.create_load_balancer ? "http://${aws_lb.main[0].dns_name}" : null
+}
+
+output "service_https_url" {
+  description = "HTTPS URL to access the service"
+  value       = var.create_load_balancer && var.enable_https ? "https://${aws_lb.main[0].dns_name}" : null
+}
+
+output "service_domain_url" {
+  description = "Domain-based URL to access the service"
+  value       = var.create_load_balancer && var.domain_name != "" ? (var.enable_https ? "https://${var.domain_name}" : "http://${var.domain_name}") : null
+}
+
+# TLS Certificate Information
+output "certificate_arn" {
+  description = "ARN of the ACM certificate"
+  value       = var.create_certificate ? aws_acm_certificate.main[0].arn : var.certificate_arn
+}
+
+output "certificate_domain_validation_options" {
+  description = "Domain validation options for the certificate"
+  value       = var.create_certificate ? aws_acm_certificate.main[0].domain_validation_options : null
 }

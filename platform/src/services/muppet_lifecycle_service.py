@@ -67,7 +67,7 @@ class MuppetLifecycleService:
         name: str,
         template: str,
         description: str = "",
-        auto_deploy: bool = False,
+        auto_deploy: bool = True,  # Changed default to True for better DX
         deployment_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
@@ -616,7 +616,7 @@ class MuppetLifecycleService:
                 details={"template": template, "available_templates": template_names},
             )
 
-    async def _generate_muppet_code(self, name: str, template: str) -> Dict[str, str]:
+    async def _generate_muppet_code(self, name: str, template: str) -> Dict[str, Any]:
         """Generate muppet code from template."""
 
         # Create temporary directory for code generation
@@ -646,13 +646,25 @@ class MuppetLifecycleService:
                     relative_path = file_path.relative_to(generated_path)
                     try:
                         with open(file_path, "r", encoding="utf-8") as f:
-                            template_files[str(relative_path)] = f.read()
+                            content = f.read()
+                            template_files[str(relative_path)] = content
+                            logger.debug(f"Collected file: {relative_path} ({len(content)} chars)")
                     except UnicodeDecodeError:
                         # Handle binary files
                         with open(file_path, "rb") as f:
-                            template_files[str(relative_path)] = f.read()
+                            content = f.read()
+                            template_files[str(relative_path)] = content
+                            logger.debug(f"Collected binary file: {relative_path} ({len(content)} bytes)")
 
             logger.info(f"Generated {len(template_files)} files for muppet {name}")
+            
+            # Log workflow files specifically
+            workflow_files = [f for f in template_files.keys() if '.github/workflows' in f]
+            if workflow_files:
+                logger.info(f"Generated workflow files: {workflow_files}")
+            else:
+                logger.warning("No workflow files found in generated template files")
+                
             return template_files
 
     async def _setup_muppet_development_environment(

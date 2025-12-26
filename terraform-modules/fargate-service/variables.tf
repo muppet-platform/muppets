@@ -28,9 +28,9 @@ variable "cpu" {
   description = "Number of CPU units for the task"
   type        = number
   default     = 256
-  
+
   validation {
-    condition = contains([256, 512, 1024, 2048, 4096], var.cpu)
+    condition     = contains([256, 512, 1024, 2048, 4096], var.cpu)
     error_message = "CPU must be one of: 256, 512, 1024, 2048, 4096."
   }
 }
@@ -39,9 +39,9 @@ variable "memory" {
   description = "Amount of memory (in MiB) for the task"
   type        = number
   default     = 512
-  
+
   validation {
-    condition = var.memory >= 512 && var.memory <= 30720
+    condition     = var.memory >= 512 && var.memory <= 30720
     error_message = "Memory must be between 512 and 30720 MiB."
   }
 }
@@ -244,8 +244,8 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default = {
-    Project     = "muppet-platform"
-    ManagedBy   = "terraform"
+    Project   = "muppet-platform"
+    ManagedBy = "terraform"
   }
 }
 
@@ -280,8 +280,52 @@ variable "error_rate_alarm_threshold" {
   default     = 10
 }
 
+# Monitoring Configuration
 variable "alarm_actions" {
-  description = "List of ARNs to notify when alarm triggers (e.g., SNS topics)"
+  description = "List of ARNs to notify when alarm triggers"
   type        = list(string)
   default     = []
+}
+
+# TLS/SSL Configuration
+variable "enable_https" {
+  description = "Enable HTTPS listener on the load balancer"
+  type        = bool
+  default     = true
+}
+
+variable "certificate_arn" {
+  description = "ARN of the SSL certificate for HTTPS listener"
+  type        = string
+  default     = ""
+}
+
+variable "domain_name" {
+  description = "Domain name for the service (used for certificate validation)"
+  type        = string
+  default     = ""
+}
+
+variable "hosted_zone_id" {
+  description = "Route53 hosted zone ID for domain validation"
+  type        = string
+  default     = ""
+}
+
+variable "create_certificate" {
+  description = "Create ACM certificate for the domain"
+  type        = bool
+  default     = false
+}
+
+variable "redirect_http_to_https" {
+  description = "Redirect HTTP traffic to HTTPS"
+  type        = bool
+  default     = true
+}
+
+variable "ssl_policy" {
+  description = "SSL policy for the HTTPS listener"
+  type        = string
+  default     = "ELBSecurityPolicy-TLS-1-2-2017-01"
 }

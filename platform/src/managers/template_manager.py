@@ -459,16 +459,21 @@ class TemplateManager:
         try:
             # Get all template variables
             template_vars = context.get_all_variables()
+            logger.info(f"Template variables: {list(template_vars.keys())}")
 
             # Process template files (application code and tests only)
+            logger.info("Processing template files...")
             self._process_simplified_template_files(
                 template_metadata.template_path, context.output_path, template_vars
             )
+            logger.info("Template files processing completed")
 
             # Auto-generate infrastructure, CI/CD, and Kiro configurations
+            logger.info("Starting auto-generation of configurations...")
             self._auto_generate_configurations(
                 template_metadata, context.muppet_name, context.output_path
             )
+            logger.info("Auto-generation of configurations completed")
 
             logger.info(
                 f"Code generation completed for '{context.muppet_name}' at {context.output_path}"
@@ -636,6 +641,9 @@ class TemplateManager:
             muppet_name: Name of the muppet
             output_path: Output directory path
         """
+        print(f"🔍 DEBUG: _auto_generate_configurations called for {muppet_name}")
+        logger.info(f"🔍 DEBUG: _auto_generate_configurations called for {muppet_name}")
+        
         # Load template config to check auto-generation settings
         config_path = template_metadata.config_path
         try:
@@ -646,6 +654,8 @@ class TemplateManager:
             return
 
         auto_generate = config.get("auto_generate", {})
+        print(f"🔍 DEBUG: auto_generate config: {auto_generate}")
+        logger.info(f"🔍 DEBUG: auto_generate config: {auto_generate}")
 
         # Convert template metadata to auto-generator format
         auto_gen_metadata = AutoGenTemplateMetadata(
@@ -670,27 +680,43 @@ class TemplateManager:
             enable_tls=auto_generate.get("tls", True),
         )
 
+        print(f"🔍 DEBUG: generation_config: {generation_config}")
+        logger.info(f"🔍 DEBUG: generation_config: {generation_config}")
+
         # Generate configurations
         try:
+            logger.info(f"Starting auto-generation for {muppet_name} with config: {generation_config}")
+            
             if generation_config.generate_infrastructure:
+                logger.info("Generating infrastructure...")
                 self.auto_generator.generate_infrastructure(
                     auto_gen_metadata, muppet_name, output_path, generation_config
                 )
+                logger.info("Infrastructure generation completed")
 
             if generation_config.generate_cicd:
+                print(f"🔍 DEBUG: About to generate CI/CD workflows for {muppet_name}")
+                logger.info("Generating CI/CD workflows...")
                 self.auto_generator.generate_cicd(
                     auto_gen_metadata, muppet_name, output_path, generation_config
                 )
+                logger.info("CI/CD workflows generation completed")
+                print(f"🔍 DEBUG: CI/CD workflows generation completed for {muppet_name}")
 
             if generation_config.generate_kiro:
+                logger.info("Generating Kiro configuration...")
                 self.auto_generator.generate_kiro_config(
                     auto_gen_metadata, muppet_name, output_path, generation_config
                 )
+                logger.info("Kiro configuration generation completed")
 
             logger.info(f"Auto-generation completed for {muppet_name}")
+            print(f"🔍 DEBUG: Auto-generation completed for {muppet_name}")
 
         except Exception as e:
             logger.error(f"Auto-generation failed for {muppet_name}: {e}")
+            logger.exception("Full auto-generation error traceback:")
+            print(f"🔍 DEBUG: Auto-generation failed for {muppet_name}: {e}")
             raise CodeGenerationError(f"Auto-generation failed: {e}")
 
     def _should_auto_generate_file(

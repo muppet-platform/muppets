@@ -126,6 +126,8 @@ tofu init && tofu validate     # Validate
 ## 📚 Documentation
 
 - **[Architecture](docs/README.md)** - System architecture and design
+- **[AWS Setup](docs/aws-test-setup.md)** - AWS integration and testing setup
+- **[AWS Deployment Ready](docs/aws-deployment-ready.md)** - AWS deployment readiness status
 - **[API Documentation](docs/api/)** - REST API reference
 - **[Templates](templates/README.md)** - Template development guide
 - **[Infrastructure](terraform-modules/README.md)** - Infrastructure modules

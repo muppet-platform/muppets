@@ -48,13 +48,13 @@ resource "aws_ecs_task_definition" "main" {
   cpu                      = var.cpu
   memory                   = var.memory
   execution_role_arn       = aws_iam_role.execution.arn
-  task_role_arn           = aws_iam_role.task.arn
+  task_role_arn            = aws_iam_role.task.arn
 
   container_definitions = jsonencode([
     {
       name  = var.service_name
       image = var.container_image
-      
+
       portMappings = [
         {
           containerPort = var.container_port
@@ -100,6 +100,50 @@ resource "aws_ecs_task_definition" "main" {
   tags = var.tags
 }
 
+# ACM Certificate (if creating one)
+resource "aws_acm_certificate" "main" {
+  count = var.create_certificate && var.domain_name != "" ? 1 : 0
+
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = var.tags
+}
+
+# Route53 record for certificate validation
+resource "aws_route53_record" "cert_validation" {
+  for_each = var.create_certificate && var.domain_name != "" && var.hosted_zone_id != "" ? {
+    for dvo in aws_acm_certificate.main[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.hosted_zone_id
+}
+
+# Certificate validation
+resource "aws_acm_certificate_validation" "main" {
+  count = var.create_certificate && var.domain_name != "" && var.hosted_zone_id != "" ? 1 : 0
+
+  certificate_arn         = aws_acm_certificate.main[0].arn
+  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+
+  timeouts {
+    create = "5m"
+  }
+}
+
 # Application Load Balancer
 resource "aws_lb" "main" {
   count = var.create_load_balancer ? 1 : 0
@@ -140,13 +184,46 @@ resource "aws_lb_target_group" "main" {
   tags = var.tags
 }
 
-# ALB Listener
-resource "aws_lb_listener" "main" {
+# ALB Listener - HTTP (redirect to HTTPS if enabled)
+resource "aws_lb_listener" "http" {
   count = var.create_load_balancer ? 1 : 0
 
   load_balancer_arn = aws_lb.main[0].arn
   port              = "80"
   protocol          = "HTTP"
+
+  dynamic "default_action" {
+    for_each = var.enable_https && var.redirect_http_to_https ? [1] : []
+    content {
+      type = "redirect"
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = !var.enable_https || !var.redirect_http_to_https ? [1] : []
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.main[0].arn
+    }
+  }
+
+  tags = var.tags
+}
+
+# ALB Listener - HTTPS
+resource "aws_lb_listener" "https" {
+  count = var.create_load_balancer && var.enable_https ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[0].arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = var.ssl_policy
+  certificate_arn   = var.create_certificate ? aws_acm_certificate_validation.main[0].certificate_arn : var.certificate_arn
 
   default_action {
     type             = "forward"
@@ -169,6 +246,17 @@ resource "aws_security_group" "alb" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
+  }
+
+  dynamic "ingress" {
+    for_each = var.enable_https ? [1] : []
+    content {
+      description = "HTTPS"
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = var.allowed_cidr_blocks
+    }
   }
 
   egress {
@@ -232,10 +320,8 @@ resource "aws_ecs_service" "main" {
     }
   }
 
-  deployment_configuration {
-    maximum_percent         = var.deployment_maximum_percent
-    minimum_healthy_percent = var.deployment_minimum_healthy_percent
-  }
+  deployment_maximum_percent         = var.deployment_maximum_percent
+  deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
 
   # Ignore task definition changes to allow for blue/green deployments
   lifecycle {
@@ -243,7 +329,8 @@ resource "aws_ecs_service" "main" {
   }
 
   depends_on = [
-    aws_lb_listener.main
+    aws_lb_listener.http,
+    aws_lb_listener.https
   ]
 
   tags = var.tags
@@ -369,12 +456,12 @@ resource "aws_iam_role" "task" {
 # IAM Policy for ECS Task (application-specific permissions)
 resource "aws_iam_role_policy" "task" {
   count = length(var.task_role_policy_statements) > 0 ? 1 : 0
-  
+
   name = "${var.service_name}-task-policy"
   role = aws_iam_role.task.id
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = var.task_role_policy_statements
   })
 }

@@ -169,26 +169,40 @@ class AutoGenerator:
             config: Generation configuration
         """
         if not config.generate_cicd:
+            print(f"🔍 DEBUG: CI/CD generation disabled for {template_metadata.name}")
             return
 
+        print(f"🔍 DEBUG: Starting CI/CD generation for {template_metadata.name}")
         logger.info(f"Generating CI/CD workflows for {template_metadata.name} template")
 
         github_dir = output_path / ".github" / "workflows"
         github_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created GitHub workflows directory: {github_dir}")
+        print(f"🔍 DEBUG: Created directory: {github_dir}")
 
         # Generate CI workflow
         ci_workflow = self._generate_ci_workflow(template_metadata, config)
-        (github_dir / "ci.yml").write_text(ci_workflow)
+        ci_file = github_dir / "ci.yml"
+        ci_file.write_text(ci_workflow)
+        logger.info(f"Generated CI workflow: {ci_file} ({len(ci_workflow)} chars)")
+        print(f"🔍 DEBUG: Generated CI workflow: {ci_file} ({len(ci_workflow)} chars)")
 
         # Generate CD workflow
         cd_workflow = self._generate_cd_workflow(template_metadata, config)
-        (github_dir / "cd.yml").write_text(cd_workflow)
+        cd_file = github_dir / "cd.yml"
+        cd_file.write_text(cd_workflow)
+        logger.info(f"Generated CD workflow: {cd_file} ({len(cd_workflow)} chars)")
+        print(f"🔍 DEBUG: Generated CD workflow: {cd_file} ({len(cd_workflow)} chars)")
 
         # Generate security workflow
         security_workflow = self._generate_security_workflow(template_metadata, config)
-        (github_dir / "security.yml").write_text(security_workflow)
+        security_file = github_dir / "security.yml"
+        security_file.write_text(security_workflow)
+        logger.info(f"Generated security workflow: {security_file} ({len(security_workflow)} chars)")
+        print(f"🔍 DEBUG: Generated security workflow: {security_file} ({len(security_workflow)} chars)")
 
         logger.info("CI/CD generation completed")
+        print(f"🔍 DEBUG: CI/CD generation completed for {template_metadata.name}")
 
     def generate_kiro_config(
         self,
@@ -277,7 +291,7 @@ RUN apk add --no-cache \\
 WORKDIR /app
 
 # Copy Gradle wrapper and build files
-COPY gradlew gradlew.bat ./
+COPY gradlew ./
 COPY gradle/ gradle/
 COPY build.gradle settings.gradle gradle.properties ./
 
@@ -299,7 +313,7 @@ COPY src/ src/
 RUN ./gradlew build --no-daemon -x test
 
 # Verify JAR was created
-RUN ls -la build/libs/ && test -f build/libs/*.jar
+RUN ls -la build/libs/ && find build/libs/ -name "*.jar" -type f | head -1
 
 # Runtime stage
 FROM amazoncorretto:21-alpine AS runtime
