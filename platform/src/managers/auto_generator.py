@@ -10,8 +10,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
-
 from ..config import get_settings
 from ..exceptions import PlatformException
 from ..logging_config import get_logger
@@ -198,8 +196,12 @@ class AutoGenerator:
         security_workflow = self._generate_security_workflow(template_metadata, config)
         security_file = github_dir / "security.yml"
         security_file.write_text(security_workflow)
-        logger.info(f"Generated security workflow: {security_file} ({len(security_workflow)} chars)")
-        print(f"🔍 DEBUG: Generated security workflow: {security_file} ({len(security_workflow)} chars)")
+        logger.info(
+            f"Generated security workflow: {security_file} ({len(security_workflow)} chars)"
+        )
+        print(
+            f"🔍 DEBUG: Generated security workflow: {security_file} ({len(security_workflow)} chars)"
+        )
 
         logger.info("CI/CD generation completed")
         print(f"🔍 DEBUG: CI/CD generation completed for {template_metadata.name}")
@@ -379,7 +381,7 @@ CMD ["java", \\
                 )
                 java_version = "21"
 
-            build_steps = f"""
+            build_steps = """
       - name: Set up Amazon Corretto JDK 21 (LTS)
         uses: actions/setup-java@v4
         with:

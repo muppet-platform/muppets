@@ -64,7 +64,7 @@ class Muppet:
         """
         # Extract muppet metadata from repository topics and description
         topics = repo_data.get("topics", [])
-        description = repo_data.get("description", "")
+        # description = repo_data.get("description", "")  # Not used currently
 
         # Parse template from topics (e.g., 'template:java-micronaut')
         template = "unknown"

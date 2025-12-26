@@ -805,8 +805,12 @@ class GitHubClient:
                 logger.info(f"Batch push successful for {repo_name}")
             else:
                 # Fallback to individual file creation
-                logger.warning(f"Batch push failed for {repo_name}, falling back to individual file creation")
-                success = await self._push_files_individual(repo_name, template_files, template)
+                logger.warning(
+                    f"Batch push failed for {repo_name}, falling back to individual file creation"
+                )
+                success = await self._push_files_individual(
+                    repo_name, template_files, template
+                )
 
             if success:
                 # Update repository status to indicate code has been pushed
@@ -814,7 +818,9 @@ class GitHubClient:
                 logger.info(f"Successfully pushed template code to {repo_name}")
                 return True
             else:
-                logger.error(f"Both batch and individual push methods failed for {repo_name}")
+                logger.error(
+                    f"Both batch and individual push methods failed for {repo_name}"
+                )
                 return False
 
         except Exception as e:
@@ -823,53 +829,57 @@ class GitHubClient:
                 message=f"Failed to push template code: {str(e)}",
                 details={"repository": repo_name, "template": template},
             )
+
     async def _push_files_batch(
         self, repo_name: str, files: Dict[str, any], commit_message: str
     ) -> bool:
         """
         Push multiple files in a single commit using GitHub Git Data API with comprehensive validation.
-        
+
         This approach is much more efficient and reliable than individual file creation,
         especially for nested directories like .github/workflows.
-        
+
         Args:
             repo_name: Repository name
             files: Dictionary of file paths to content (str or bytes)
             commit_message: Commit message
-            
+
         Returns:
             True if successful
         """
         try:
             logger.info(f"Starting batch push of {len(files)} files to {repo_name}")
-            
+
             # For newly created repositories, wait a moment for GitHub to initialize
             import asyncio
+
             await asyncio.sleep(2)
-            
+
             # Step 1: Get the current branch reference (main)
             branch_ref = await self._get_branch_ref(repo_name, "main")
             if not branch_ref:
                 logger.error(f"Failed to get branch reference for {repo_name}")
                 return False
-                
+
             parent_commit_sha = branch_ref["object"]["sha"]
             logger.debug(f"Parent commit SHA: {parent_commit_sha}")
-            
+
             # Step 2: Get the current tree SHA
-            base_tree_sha = await self._get_commit_tree_sha(repo_name, parent_commit_sha)
+            base_tree_sha = await self._get_commit_tree_sha(
+                repo_name, parent_commit_sha
+            )
             if not base_tree_sha:
                 logger.error(f"Failed to get base tree SHA for {repo_name}")
                 return False
-                
+
             logger.debug(f"Base tree SHA: {base_tree_sha}")
-            
+
             # Step 3: Validate and create blobs for all files with comprehensive validation
             tree_entries = []
             blob_failures = []
             large_files = []
             invalid_paths = []
-            
+
             for file_path, content in files.items():
                 try:
                     # Validate file path
@@ -877,79 +887,99 @@ class GitHubClient:
                         logger.warning(f"Invalid file path: {file_path}")
                         invalid_paths.append(file_path)
                         continue
-                    
+
                     # Check file size limits
-                    content_size = len(content) if isinstance(content, (str, bytes)) else 0
+                    content_size = (
+                        len(content) if isinstance(content, (str, bytes)) else 0
+                    )
                     if content_size > 100 * 1024 * 1024:  # 100MB GitHub limit
-                        logger.warning(f"File too large: {file_path} ({content_size} bytes)")
+                        logger.warning(
+                            f"File too large: {file_path} ({content_size} bytes)"
+                        )
                         large_files.append(file_path)
                         continue
-                    
+
                     # Create blob with validation
-                    blob_sha = await self._create_blob_validated(repo_name, content, file_path)
+                    blob_sha = await self._create_blob_validated(
+                        repo_name, content, file_path
+                    )
                     if not blob_sha:
                         logger.error(f"Failed to create blob for {file_path}")
                         blob_failures.append(file_path)
                         continue
-                        
+
                     # Validate blob SHA format
                     if not self._is_valid_sha(blob_sha):
                         logger.error(f"Invalid blob SHA for {file_path}: {blob_sha}")
                         blob_failures.append(file_path)
                         continue
-                        
+
                     # Determine file mode with validation
                     mode = self._get_file_mode(file_path)
                     if not mode:
                         logger.error(f"Could not determine file mode for {file_path}")
                         blob_failures.append(file_path)
                         continue
-                    
+
                     # Create validated tree entry
                     tree_entry = {
                         "path": file_path,
                         "mode": mode,
                         "type": "blob",
-                        "sha": blob_sha
+                        "sha": blob_sha,
                     }
-                    
+
                     # Validate tree entry structure
                     if self._validate_tree_entry(tree_entry):
                         tree_entries.append(tree_entry)
                     else:
-                        logger.error(f"Invalid tree entry for {file_path}: {tree_entry}")
+                        logger.error(
+                            f"Invalid tree entry for {file_path}: {tree_entry}"
+                        )
                         blob_failures.append(file_path)
-                        
+
                 except Exception as e:
                     logger.error(f"Exception processing {file_path}: {e}")
                     blob_failures.append(file_path)
-            
+
             # Report validation results
             if blob_failures:
-                logger.warning(f"Failed to process {len(blob_failures)} files: {blob_failures}")
+                logger.warning(
+                    f"Failed to process {len(blob_failures)} files: {blob_failures}"
+                )
             if large_files:
                 logger.warning(f"Skipped {len(large_files)} large files: {large_files}")
             if invalid_paths:
-                logger.warning(f"Skipped {len(invalid_paths)} invalid paths: {invalid_paths}")
-                
+                logger.warning(
+                    f"Skipped {len(invalid_paths)} invalid paths: {invalid_paths}"
+                )
+
             if not tree_entries:
                 logger.error("No valid files to create tree with")
                 return False
-                
-            logger.info(f"Successfully validated {len(tree_entries)} files for tree creation")
-            
+
+            logger.info(
+                f"Successfully validated {len(tree_entries)} files for tree creation"
+            )
+
             # Step 4: Create tree with batch size limits and retry logic
             success = await self._create_tree_with_retry(
-                repo_name, tree_entries, base_tree_sha, parent_commit_sha, commit_message
+                repo_name,
+                tree_entries,
+                base_tree_sha,
+                parent_commit_sha,
+                commit_message,
             )
-            
+
             if success:
-                logger.info(f"Successfully pushed {len(tree_entries)} files to {repo_name} in batch")
+                logger.info(
+                    f"Successfully pushed {len(tree_entries)} files to {repo_name} in batch"
+                )
                 return True
             else:
-                logger.error(f"Failed to create tree after all retry attempts")
+                logger.error("Failed to create tree after all retry attempts")
                 return False
-            
+
         except Exception as e:
             logger.error(f"Batch push failed for {repo_name}: {e}")
             return False
@@ -959,61 +989,72 @@ class GitHubClient:
     ) -> bool:
         """
         Push files individually using Contents API as fallback.
-        
+
         Args:
             repo_name: Repository name
             files: Dictionary of file paths to content (str or bytes)
             template: Template name for commit messages
-            
+
         Returns:
             True if successful
         """
         try:
-            logger.info(f"Starting individual push of {len(files)} files to {repo_name}")
-            
+            logger.info(
+                f"Starting individual push of {len(files)} files to {repo_name}"
+            )
+
             success_count = 0
             failed_files = []
-            
+
             for file_path, content in files.items():
                 try:
                     # Handle binary files properly
                     if isinstance(content, bytes):
                         # For binary files, we need to use base64 encoding
                         import base64
+
                         encoded_content = base64.b64encode(content).decode()
-                        
+
                         # Create the file using raw API call for binary content
                         success = await self._create_file_binary(
-                            repo_name, file_path, encoded_content, 
-                            f"Add {file_path} from {template} template"
+                            repo_name,
+                            file_path,
+                            encoded_content,
+                            f"Add {file_path} from {template} template",
                         )
                     else:
                         # For text files, use the existing method
                         success = await self._create_file(
-                            repo_name, file_path, content,
-                            f"Add {file_path} from {template} template"
+                            repo_name,
+                            file_path,
+                            content,
+                            f"Add {file_path} from {template} template",
                         )
-                    
+
                     if success:
                         success_count += 1
                         logger.debug(f"Successfully pushed {file_path}")
                     else:
                         failed_files.append(file_path)
                         logger.warning(f"Failed to push {file_path}")
-                        
+
                 except Exception as e:
                     failed_files.append(file_path)
                     logger.warning(f"Error pushing {file_path}: {e}")
-            
-            logger.info(f"Individual push completed: {success_count}/{len(files)} files successful")
-            
+
+            logger.info(
+                f"Individual push completed: {success_count}/{len(files)} files successful"
+            )
+
             if failed_files:
-                logger.warning(f"Failed to push {len(failed_files)} files: {failed_files}")
-            
+                logger.warning(
+                    f"Failed to push {len(failed_files)} files: {failed_files}"
+                )
+
             # Consider it successful if we pushed most files (allow some failures for non-critical files)
             success_rate = success_count / len(files)
             return success_rate >= 0.8  # 80% success rate threshold
-            
+
         except Exception as e:
             logger.error(f"Individual push failed for {repo_name}: {e}")
             return False
@@ -1023,18 +1064,20 @@ class GitHubClient:
     ) -> bool:
         """
         Create a binary file in the repository using base64 content.
-        
+
         Args:
             repo_name: Repository name
             path: File path in repository
             base64_content: Base64 encoded file content
             commit_message: Commit message
-            
+
         Returns:
             True if successful
         """
         try:
-            url = f"{self.base_url}/repos/{self.organization}/{repo_name}/contents/{path}"
+            url = (
+                f"{self.base_url}/repos/{self.organization}/{repo_name}/contents/{path}"
+            )
             payload = {
                 "message": commit_message,
                 "content": base64_content,
@@ -1047,7 +1090,9 @@ class GitHubClient:
                 logger.debug(f"Created binary file {path} in {repo_name}")
                 return True
             else:
-                logger.warning(f"Failed to create binary file {path} in {repo_name}: {response.status_code}")
+                logger.warning(
+                    f"Failed to create binary file {path} in {repo_name}: {response.status_code}"
+                )
                 return False
 
         except Exception as e:
@@ -1058,34 +1103,34 @@ class GitHubClient:
         """Validate that a file path is acceptable for GitHub tree API."""
         if not file_path or not isinstance(file_path, str):
             return False
-            
+
         # Check for invalid characters
-        invalid_chars = ['\\', '\0', '\r', '\n']
+        invalid_chars = ["\\", "\0", "\r", "\n"]
         if any(char in file_path for char in invalid_chars):
             return False
-            
+
         # Check path length (GitHub has limits)
         if len(file_path) > 4096:
             return False
-            
+
         # Check for relative path components
-        if '..' in file_path or file_path.startswith('/'):
+        if ".." in file_path or file_path.startswith("/"):
             return False
-            
+
         # Check for empty path components
-        if '//' in file_path or file_path.endswith('/'):
+        if "//" in file_path or file_path.endswith("/"):
             return False
-            
+
         return True
 
     def _is_valid_sha(self, sha: str) -> bool:
         """Validate that a SHA is properly formatted."""
         if not sha or not isinstance(sha, str):
             return False
-            
+
         if len(sha) != 40:
             return False
-            
+
         # Check if all characters are valid hex
         try:
             int(sha, 16)
@@ -1097,119 +1142,136 @@ class GitHubClient:
         """Get the appropriate Git file mode for a file path."""
         if not file_path:
             return None
-            
+
         # Executable files
-        if file_path.endswith(('.sh', 'gradlew')) or '/bin/' in file_path:
+        if file_path.endswith((".sh", "gradlew")) or "/bin/" in file_path:
             return "100755"
-            
+
         # Regular files
         return "100644"
 
     def _validate_tree_entry(self, entry: Dict[str, str]) -> bool:
         """Validate a tree entry structure."""
-        required_fields = ['path', 'mode', 'type', 'sha']
-        
+        required_fields = ["path", "mode", "type", "sha"]
+
         # Check all required fields are present
         for field in required_fields:
             if field not in entry:
                 return False
-                
+
         # Validate field values
-        if not self._is_valid_file_path(entry['path']):
+        if not self._is_valid_file_path(entry["path"]):
             return False
-            
-        if entry['mode'] not in ['100644', '100755', '040000', '120000', '160000']:
+
+        if entry["mode"] not in ["100644", "100755", "040000", "120000", "160000"]:
             return False
-            
-        if entry['type'] not in ['blob', 'tree', 'commit']:
+
+        if entry["type"] not in ["blob", "tree", "commit"]:
             return False
-            
-        if not self._is_valid_sha(entry['sha']):
+
+        if not self._is_valid_sha(entry["sha"]):
             return False
-            
+
         return True
 
-    async def _create_blob_validated(self, repo_name: str, content: any, file_path: str) -> Optional[str]:
+    async def _create_blob_validated(
+        self, repo_name: str, content: any, file_path: str
+    ) -> Optional[str]:
         """Create a blob with enhanced validation and error handling."""
         try:
             import base64
-            
+
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/blobs"
-            
+
             # Handle both string and bytes content with size validation
             if isinstance(content, bytes):
                 # Check size limits for binary files
                 if len(content) > 50 * 1024 * 1024:  # 50MB limit for binary
-                    logger.warning(f"Binary file too large: {file_path} ({len(content)} bytes)")
+                    logger.warning(
+                        f"Binary file too large: {file_path} ({len(content)} bytes)"
+                    )
                     return None
-                    
+
                 encoded_content = base64.b64encode(content).decode()
                 encoding = "base64"
             else:
                 # For text files, validate encoding
                 try:
-                    content_bytes = content.encode('utf-8')
+                    content_bytes = content.encode("utf-8")
                     if len(content_bytes) > 100 * 1024 * 1024:  # 100MB limit for text
-                        logger.warning(f"Text file too large: {file_path} ({len(content_bytes)} bytes)")
+                        logger.warning(
+                            f"Text file too large: {file_path} ({len(content_bytes)} bytes)"
+                        )
                         return None
-                        
+
                     encoded_content = base64.b64encode(content_bytes).decode()
                     encoding = "base64"
                 except UnicodeEncodeError as e:
                     logger.error(f"Failed to encode text file {file_path}: {e}")
                     return None
-            
-            payload = {
-                "content": encoded_content,
-                "encoding": encoding
-            }
-            
+
+            payload = {"content": encoded_content, "encoding": encoding}
+
             response = await self._client.post(url, json=payload)
-            
+
             if response.status_code == 201:
                 blob_data = response.json()
                 blob_sha = blob_data["sha"]
-                
+
                 # Validate returned SHA
                 if not self._is_valid_sha(blob_sha):
-                    logger.error(f"GitHub returned invalid SHA for {file_path}: {blob_sha}")
+                    logger.error(
+                        f"GitHub returned invalid SHA for {file_path}: {blob_sha}"
+                    )
                     return None
-                    
-                logger.debug(f"Created blob for {file_path}: {blob_sha[:8]}... (size: {len(encoded_content)} chars)")
+
+                logger.debug(
+                    f"Created blob for {file_path}: {blob_sha[:8]}... (size: {len(encoded_content)} chars)"
+                )
                 return blob_sha
             else:
-                logger.error(f"Failed to create blob for {file_path}: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to create blob for {file_path}: {response.status_code} - {response.text}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error creating blob for {file_path}: {e}")
             return None
 
     async def _create_tree_with_retry(
-        self, repo_name: str, tree_entries: List[Dict[str, str]], 
-        base_tree_sha: str, parent_commit_sha: str, commit_message: str
+        self,
+        repo_name: str,
+        tree_entries: List[Dict[str, str]],
+        base_tree_sha: str,
+        parent_commit_sha: str,
+        commit_message: str,
     ) -> bool:
         """Create tree with comprehensive retry logic and batch size management."""
-        
+
         # Try full batch first
         logger.info(f"Attempting to create tree with {len(tree_entries)} entries")
-        
+
         # Log sample entries for debugging
         logger.debug(f"Sample tree entries: {tree_entries[:3]}")
-        
+
         # Attempt 1: Full tree with base_tree
         new_tree_sha = await self._create_tree(repo_name, tree_entries, base_tree_sha)
-        
+
         if new_tree_sha:
-            return await self._complete_commit(repo_name, new_tree_sha, parent_commit_sha, commit_message)
-        
+            return await self._complete_commit(
+                repo_name, new_tree_sha, parent_commit_sha, commit_message
+            )
+
         # Attempt 2: Full tree without base_tree
         logger.warning("Retrying tree creation without base_tree")
         new_tree_sha = await self._create_tree(repo_name, tree_entries, None)
-        
+
         if new_tree_sha:
-            return await self._complete_commit(repo_name, new_tree_sha, parent_commit_sha, commit_message)
-        
+            return await self._complete_commit(
+                repo_name, new_tree_sha, parent_commit_sha, commit_message
+            )
+
         # Attempt 3: Split into smaller batches
         logger.warning("Attempting tree creation with smaller batches")
         return await self._create_tree_in_batches(
@@ -1220,7 +1282,7 @@ class GitHubClient:
         self, repo_name: str, tree_sha: str, parent_commit_sha: str, commit_message: str
     ) -> bool:
         """Complete the commit process with the given tree."""
-        
+
         # Create commit
         new_commit_sha = await self._create_commit(
             repo_name, tree_sha, parent_commit_sha, commit_message
@@ -1228,123 +1290,145 @@ class GitHubClient:
         if not new_commit_sha:
             logger.error(f"Failed to create commit for {repo_name}")
             return False
-            
+
         logger.debug(f"Created commit: {new_commit_sha}")
-        
+
         # Update branch reference
         success = await self._update_branch_ref(repo_name, "main", new_commit_sha)
         if not success:
             logger.error(f"Failed to update branch reference for {repo_name}")
             return False
-            
+
         return True
 
     async def _create_tree_in_batches(
-        self, repo_name: str, tree_entries: List[Dict[str, str]], 
-        base_tree_sha: str, parent_commit_sha: str, commit_message: str
+        self,
+        repo_name: str,
+        tree_entries: List[Dict[str, str]],
+        base_tree_sha: str,
+        parent_commit_sha: str,
+        commit_message: str,
     ) -> bool:
         """Create tree in smaller batches if full tree creation fails."""
-        
+
         batch_size = 20  # Start with smaller batches
         current_tree_sha = base_tree_sha
         current_commit_sha = parent_commit_sha
-        
+
         # Split entries into batches
         for i in range(0, len(tree_entries), batch_size):
-            batch = tree_entries[i:i + batch_size]
+            batch = tree_entries[i : i + batch_size]
             batch_num = (i // batch_size) + 1
             total_batches = (len(tree_entries) + batch_size - 1) // batch_size
-            
-            logger.info(f"Processing batch {batch_num}/{total_batches} ({len(batch)} files)")
-            
+
+            logger.info(
+                f"Processing batch {batch_num}/{total_batches} ({len(batch)} files)"
+            )
+
             # Create tree for this batch
             new_tree_sha = await self._create_tree(repo_name, batch, current_tree_sha)
-            
+
             if not new_tree_sha:
                 logger.error(f"Failed to create tree for batch {batch_num}")
-                
+
                 # Try without base_tree for this batch
                 new_tree_sha = await self._create_tree(repo_name, batch, None)
-                
+
                 if not new_tree_sha:
-                    logger.error(f"Failed to create tree for batch {batch_num} even without base_tree")
+                    logger.error(
+                        f"Failed to create tree for batch {batch_num} even without base_tree"
+                    )
                     return False
-            
+
             # Create commit for this batch
-            batch_commit_message = f"{commit_message} (batch {batch_num}/{total_batches})"
+            batch_commit_message = (
+                f"{commit_message} (batch {batch_num}/{total_batches})"
+            )
             new_commit_sha = await self._create_commit(
                 repo_name, new_tree_sha, current_commit_sha, batch_commit_message
             )
-            
+
             if not new_commit_sha:
                 logger.error(f"Failed to create commit for batch {batch_num}")
                 return False
-            
+
             # Update for next iteration
             current_tree_sha = new_tree_sha
             current_commit_sha = new_commit_sha
-            
+
             logger.debug(f"Completed batch {batch_num}: commit {new_commit_sha[:8]}...")
-        
+
         # Update branch reference to final commit
         success = await self._update_branch_ref(repo_name, "main", current_commit_sha)
         if not success:
-            logger.error(f"Failed to update branch reference after batch processing")
+            logger.error("Failed to update branch reference after batch processing")
             return False
-        
+
         logger.info(f"Successfully created tree in {total_batches} batches")
         return True
 
-    async def _get_branch_ref(self, repo_name: str, branch: str) -> Optional[Dict[str, Any]]:
+    async def _get_branch_ref(
+        self, repo_name: str, branch: str
+    ) -> Optional[Dict[str, Any]]:
         """Get branch reference information."""
         try:
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/refs/heads/{branch}"
             response = await self._client.get(url)
-            
+
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 404:
                 # Branch doesn't exist yet, try to get the default branch
-                logger.warning(f"Branch {branch} not found, checking repository default branch")
+                logger.warning(
+                    f"Branch {branch} not found, checking repository default branch"
+                )
                 repo_url = f"{self.base_url}/repos/{self.organization}/{repo_name}"
                 repo_response = await self._client.get(repo_url)
-                
+
                 if repo_response.status_code == 200:
                     repo_data = repo_response.json()
                     default_branch = repo_data.get("default_branch")
-                    
+
                     if default_branch and default_branch != branch:
                         # Try the default branch
                         default_url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/refs/heads/{default_branch}"
                         default_response = await self._client.get(default_url)
-                        
+
                         if default_response.status_code == 200:
-                            logger.info(f"Using default branch {default_branch} instead of {branch}")
+                            logger.info(
+                                f"Using default branch {default_branch} instead of {branch}"
+                            )
                             return default_response.json()
-                
+
                 logger.error(f"No valid branch found for {repo_name}")
                 return None
             else:
-                logger.error(f"Failed to get branch ref: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to get branch ref: {response.status_code} - {response.text}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error getting branch ref: {e}")
             return None
 
-    async def _get_commit_tree_sha(self, repo_name: str, commit_sha: str) -> Optional[str]:
+    async def _get_commit_tree_sha(
+        self, repo_name: str, commit_sha: str
+    ) -> Optional[str]:
         """Get tree SHA from commit."""
         try:
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/commits/{commit_sha}"
             response = await self._client.get(url)
-            
+
             if response.status_code == 200:
                 commit_data = response.json()
                 return commit_data["tree"]["sha"]
             else:
-                logger.error(f"Failed to get commit tree: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to get commit tree: {response.status_code} - {response.text}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error getting commit tree: {e}")
             return None
@@ -1353,9 +1437,9 @@ class GitHubClient:
         """Create a blob for file content."""
         try:
             import base64
-            
+
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/blobs"
-            
+
             # Handle both string and bytes content
             if isinstance(content, bytes):
                 # For binary files, encode as base64
@@ -1363,130 +1447,149 @@ class GitHubClient:
                 encoding = "base64"
             else:
                 # For text files, use UTF-8
-                encoded_content = base64.b64encode(content.encode('utf-8')).decode()
+                encoded_content = base64.b64encode(content.encode("utf-8")).decode()
                 encoding = "base64"
-            
-            payload = {
-                "content": encoded_content,
-                "encoding": encoding
-            }
-            
+
+            payload = {"content": encoded_content, "encoding": encoding}
+
             response = await self._client.post(url, json=payload)
-            
+
             if response.status_code == 201:
                 blob_data = response.json()
                 blob_sha = blob_data["sha"]
-                logger.debug(f"Created blob: {blob_sha[:8]}... (size: {len(encoded_content)} chars)")
+                logger.debug(
+                    f"Created blob: {blob_sha[:8]}... (size: {len(encoded_content)} chars)"
+                )
                 return blob_sha
             else:
-                logger.error(f"Failed to create blob: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to create blob: {response.status_code} - {response.text}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error creating blob: {e}")
             return None
 
-    async def _create_tree(self, repo_name: str, tree_entries: List[Dict[str, str]], base_tree_sha: Optional[str]) -> Optional[str]:
+    async def _create_tree(
+        self,
+        repo_name: str,
+        tree_entries: List[Dict[str, str]],
+        base_tree_sha: Optional[str],
+    ) -> Optional[str]:
         """Create a new tree with the given entries."""
         try:
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/trees"
-            
+
             # Build payload - only include base_tree if it's valid
             payload = {"tree": tree_entries}
             if base_tree_sha and self._is_valid_sha(base_tree_sha):
                 payload["base_tree"] = base_tree_sha
-            
+
             # Enhanced debug logging
             logger.info(f"Creating tree for {repo_name}")
-            logger.info(f"Base tree SHA: {base_tree_sha} (valid: {self._is_valid_sha(base_tree_sha) if base_tree_sha else False})")
+            logger.info(
+                f"Base tree SHA: {base_tree_sha} (valid: {self._is_valid_sha(base_tree_sha) if base_tree_sha else False})"
+            )
             logger.info(f"Tree entries count: {len(tree_entries)}")
-            logger.debug(f"Sample tree entries: {tree_entries[:3] if tree_entries else []}")
-            
+            logger.debug(
+                f"Sample tree entries: {tree_entries[:3] if tree_entries else []}"
+            )
+
             # Validate all tree entries before sending
             invalid_entries = []
             for i, entry in enumerate(tree_entries):
                 if not self._validate_tree_entry(entry):
                     invalid_entries.append(f"Entry {i}: {entry}")
-            
+
             if invalid_entries:
                 logger.error(f"Invalid tree entries found: {invalid_entries}")
                 return None
-            
+
             logger.debug(f"Tree creation payload: {payload}")
-            
+
             response = await self._client.post(url, json=payload)
-            
+
             if response.status_code == 201:
                 tree_data = response.json()
                 logger.info(f"Successfully created tree: {tree_data['sha']}")
                 return tree_data["sha"]
             else:
-                logger.error(f"Failed to create tree: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to create tree: {response.status_code} - {response.text}"
+                )
                 logger.error(f"Request URL: {url}")
                 logger.error(f"Payload was: {payload}")
-                
+
                 # If we used base_tree, try without it
                 if "base_tree" in payload:
                     logger.warning("Retrying tree creation without base_tree")
                     payload_no_base = {"tree": tree_entries}
                     retry_response = await self._client.post(url, json=payload_no_base)
-                    
+
                     if retry_response.status_code == 201:
                         tree_data = retry_response.json()
-                        logger.info(f"Successfully created tree without base_tree: {tree_data['sha']}")
+                        logger.info(
+                            f"Successfully created tree without base_tree: {tree_data['sha']}"
+                        )
                         return tree_data["sha"]
                     else:
-                        logger.error(f"Retry without base_tree also failed: {retry_response.status_code} - {retry_response.text}")
-                
+                        logger.error(
+                            f"Retry without base_tree also failed: {retry_response.status_code} - {retry_response.text}"
+                        )
+
                 return None
-                
+
         except Exception as e:
             logger.error(f"Exception creating tree: {e}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
-    async def _create_commit(self, repo_name: str, tree_sha: str, parent_sha: str, message: str) -> Optional[str]:
+    async def _create_commit(
+        self, repo_name: str, tree_sha: str, parent_sha: str, message: str
+    ) -> Optional[str]:
         """Create a new commit."""
         try:
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/commits"
-            
-            payload = {
-                "message": message,
-                "tree": tree_sha,
-                "parents": [parent_sha]
-            }
-            
+
+            payload = {"message": message, "tree": tree_sha, "parents": [parent_sha]}
+
             response = await self._client.post(url, json=payload)
-            
+
             if response.status_code == 201:
                 commit_data = response.json()
                 return commit_data["sha"]
             else:
-                logger.error(f"Failed to create commit: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to create commit: {response.status_code} - {response.text}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error creating commit: {e}")
             return None
 
-    async def _update_branch_ref(self, repo_name: str, branch: str, commit_sha: str) -> bool:
+    async def _update_branch_ref(
+        self, repo_name: str, branch: str, commit_sha: str
+    ) -> bool:
         """Update branch reference to point to new commit."""
         try:
             url = f"{self.base_url}/repos/{self.organization}/{repo_name}/git/refs/heads/{branch}"
-            
-            payload = {
-                "sha": commit_sha
-            }
-            
+
+            payload = {"sha": commit_sha}
+
             response = await self._client.patch(url, json=payload)
-            
+
             if response.status_code == 200:
                 return True
             else:
-                logger.error(f"Failed to update branch ref: {response.status_code} - {response.text}")
+                logger.error(
+                    f"Failed to update branch ref: {response.status_code} - {response.text}"
+                )
                 return False
-                
+
         except Exception as e:
             logger.error(f"Error updating branch ref: {e}")
             return False
@@ -1530,11 +1633,11 @@ on:
 jobs:
   security:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
@@ -1542,7 +1645,7 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-results.sarif'
-        
+
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()

@@ -5,11 +5,11 @@ This module defines all configuration settings with proper validation,
 environment variable support, and default values.
 """
 
-import boto3
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import Field, field_validator, computed_field
+import boto3
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -35,26 +35,27 @@ class AWSConfig(BaseSettings):
     def account_id(self) -> str:
         """
         Dynamically get AWS account ID from current credentials.
-        
-        This works in both local development (using ~/.aws/credentials) 
+
+        This works in both local development (using ~/.aws/credentials)
         and when deployed to AWS (using IAM roles).
         """
         try:
             # Import here to avoid circular imports
             from . import get_settings
+
             settings = get_settings()
-            
+
             # Configure STS client based on environment
-            client_config = {'region_name': self.region}
-            
+            client_config = {"region_name": self.region}
+
             # Use LocalStack endpoint if configured (for local development)
             if settings.aws_endpoint_url:
-                client_config['endpoint_url'] = settings.aws_endpoint_url
-            
-            sts_client = boto3.client('sts', **client_config)
+                client_config["endpoint_url"] = settings.aws_endpoint_url
+
+            sts_client = boto3.client("sts", **client_config)
             response = sts_client.get_caller_identity()
-            return response['Account']
-        except Exception as e:
+            return response["Account"]
+        except Exception:
             # Fallback for local development without AWS credentials
             # or when running in mock mode
             return "123456789012"  # Default placeholder

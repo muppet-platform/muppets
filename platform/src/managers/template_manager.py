@@ -8,7 +8,6 @@ parameter injection, and code generation from templates.
 
 import re
 import shutil
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -369,7 +368,7 @@ class TemplateManager:
                 )
 
             core_files = template_files_config.get("core", [])
-            optional_files = template_files_config.get("optional", [])
+            # optional_files = template_files_config.get("optional", [])  # Not used currently
 
             # Validate core files exist (these are always processed)
             missing_core_files = []
@@ -643,7 +642,7 @@ class TemplateManager:
         """
         print(f"🔍 DEBUG: _auto_generate_configurations called for {muppet_name}")
         logger.info(f"🔍 DEBUG: _auto_generate_configurations called for {muppet_name}")
-        
+
         # Load template config to check auto-generation settings
         config_path = template_metadata.config_path
         try:
@@ -685,8 +684,10 @@ class TemplateManager:
 
         # Generate configurations
         try:
-            logger.info(f"Starting auto-generation for {muppet_name} with config: {generation_config}")
-            
+            logger.info(
+                f"Starting auto-generation for {muppet_name} with config: {generation_config}"
+            )
+
             if generation_config.generate_infrastructure:
                 logger.info("Generating infrastructure...")
                 self.auto_generator.generate_infrastructure(
@@ -701,7 +702,9 @@ class TemplateManager:
                     auto_gen_metadata, muppet_name, output_path, generation_config
                 )
                 logger.info("CI/CD workflows generation completed")
-                print(f"🔍 DEBUG: CI/CD workflows generation completed for {muppet_name}")
+                print(
+                    f"🔍 DEBUG: CI/CD workflows generation completed for {muppet_name}"
+                )
 
             if generation_config.generate_kiro:
                 logger.info("Generating Kiro configuration...")
