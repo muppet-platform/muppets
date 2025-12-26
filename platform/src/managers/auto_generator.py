@@ -311,8 +311,8 @@ RUN ./gradlew dependencies --no-daemon
 # Copy source code
 COPY src/ src/
 
-# Build application
-RUN ./gradlew build --no-daemon -x test
+# Build application (shadow JAR for fat JAR with dependencies)
+RUN ./gradlew shadowJar --no-daemon
 
 # Verify JAR was created
 RUN ls -la build/libs/ && find build/libs/ -name "*.jar" -type f | head -1
@@ -332,8 +332,8 @@ RUN addgroup -g 1001 -S appgroup && \\
 # Set working directory
 WORKDIR /app
 
-# Copy JAR from build stage
-COPY --from=builder /app/build/libs/*.jar app.jar
+# Copy JAR from build stage (shadow JAR only)
+COPY --from=builder /app/build/libs/*-all.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
