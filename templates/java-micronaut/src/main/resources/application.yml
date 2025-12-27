@@ -6,22 +6,24 @@ micronaut:
     host: 0.0.0.0
   metrics:
     enabled: true
-    export:
-      cloudwatch:
-        enabled: true
-        namespace: muppet-platform/{{muppet_name}}
-        step: PT1M
+    # CloudWatch metrics disabled for local development
+    # Uncomment for production deployment:
+    # export:
+    #   cloudwatch:
+    #     enabled: true
+    #     namespace: muppet-platform/{{muppet_name}}
+    #     step: PT1M
   executors:
     io:
       type: fixed
       nThreads: 75
 
-# AWS Configuration
-aws:
-  region: ${AWS_REGION:us-east-1}
-  services:
-    cloudwatch:
-      endpoint-override: ${AWS_ENDPOINT_OVERRIDE:}
+# AWS Configuration (for production deployment)
+# aws:
+#   region: ${AWS_REGION:us-east-1}
+#   services:
+#     cloudwatch:
+#       endpoint-override: ${AWS_ENDPOINT_OVERRIDE:}
 
 endpoints:
   health:
@@ -36,7 +38,7 @@ endpoints:
 
 logger:
   levels:
-    com.muppetplatform.{{muppet_name}}: INFO
+    com.muppetplatform.{{java_package_name}}: INFO
     root: WARN
 
 ---
@@ -46,13 +48,26 @@ micronaut:
     port: 3000
 logger:
   levels:
-    com.muppetplatform.{{muppet_name}}: DEBUG
+    com.muppetplatform.{{java_package_name}}: DEBUG
     root: INFO
 
 ---
 micronaut:
   environments: production
+  metrics:
+    enabled: true
+    export:
+      cloudwatch:
+        enabled: true
+        namespace: muppet-platform/{{muppet_name}}
+        step: PT1M
+# AWS Configuration for production
+aws:
+  region: ${AWS_REGION:us-east-1}
+  services:
+    cloudwatch:
+      endpoint-override: ${AWS_ENDPOINT_OVERRIDE:}
 logger:
   levels:
-    com.muppetplatform.{{muppet_name}}: INFO
+    com.muppetplatform.{{java_package_name}}: INFO
     root: WARN

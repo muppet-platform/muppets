@@ -43,6 +43,24 @@ elif [ "$1" = "--docker" ] || [ "$1" = "-d" ]; then
         ./scripts/build.sh
     fi
     
+    # Create .env.local if it doesn't exist
+    if [ ! -f .env.local ]; then
+        echo "📝 Creating .env.local file..."
+        cat > .env.local << EOF
+# Local development environment variables for {{muppet_name}}
+MICRONAUT_ENVIRONMENTS=development
+MUPPET_NAME={{muppet_name}}
+AWS_REGION=us-east-1
+ENVIRONMENT=development
+
+# Local development ports
+SERVER_PORT=3000
+
+# Logging
+LOG_LEVEL=DEBUG
+EOF
+    fi
+    
     # Run container
     docker run --rm \
         -p 3000:3000 \

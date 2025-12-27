@@ -62,12 +62,19 @@ run-dev: check-deps
 	@echo "Starting {{muppet_name}} development server (Gradle)..."
 	@./scripts/run.sh --gradle
 
-run-docker: run
-	@echo "Alias for 'make run' - starting on Rancher Desktop..."
+run-aws: check-deps build
+	@echo "Starting {{muppet_name}} with LocalStack (AWS services)..."
+	@if curl -s http://localhost:4566/_localstack/health >/dev/null 2>&1; then \
+		echo "✅ LocalStack already running on port 4566, using existing instance"; \
+		echo "🔗 LocalStack Health: http://localhost:4566/_localstack/health"; \
+		AWS_ENDPOINT_OVERRIDE=http://localhost:4566 docker-compose -f docker-compose.local.yml up {{muppet_name}}-standalone --build; \
+	else \
+		echo "🚀 Starting new LocalStack instance"; \
+		docker-compose -f docker-compose.local.yml --profile full-stack up --build; \
+	fi
 
-run-compose: check-deps
-	@echo "Starting {{muppet_name}} with Docker Compose..."
-	@./scripts/run.sh --compose
+run-compose: run-aws
+	@echo "Alias for 'make run-aws' - starting with LocalStack..."
 
 stop:
 	@echo "Stopping {{muppet_name}} services..."

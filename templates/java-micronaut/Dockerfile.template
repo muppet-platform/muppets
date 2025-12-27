@@ -1,4 +1,5 @@
 # Optimized build using pre-built JAR
+# This Dockerfile expects the JAR to be built outside Docker for faster builds
 FROM amazoncorretto:21-alpine
 
 # Install curl for health checks
@@ -11,14 +12,25 @@ RUN addgroup -g 1001 -S muppet && \
 # Set working directory
 WORKDIR /app
 
-# Copy the pre-built JAR (built outside Docker for speed)
-COPY build/libs/{{muppet_name}}-*-all.jar app.jar
+# Copy the pre-built shadow JAR (built by build.sh)
+# The build.sh script creates this as build/libs/app.jar
+COPY build/libs/app.jar app.jar
+
+# Verify the JAR file exists and has proper structure
+RUN test -f app.jar || { echo "❌ app.jar not found. Run ./scripts/build.sh first."; exit 1; }
+RUN jar tf app.jar | grep -q "META-INF/MANIFEST.MF" || { echo "❌ JAR missing manifest"; exit 1; }
+RUN jar tf app.jar | grep -q "com/muppetplatform/.*/Application.class" || { echo "❌ Main class not found in JAR"; exit 1; }
+RUN echo "✅ JAR verification passed"
 
 # Change ownership to non-root user
 RUN chown -R muppet:muppet /app
 
 # Switch to non-root user
 USER muppet
+
+# Validate Java 21 LTS in runtime
+RUN java -version 2>&1 | grep -q "21.*LTS" || { echo "❌ Java 21 LTS required in runtime"; exit 1; }
+RUN echo "✅ Runtime using Amazon Corretto 21 LTS"
 
 # Expose port 3000
 EXPOSE 3000
@@ -27,5 +39,11 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application with optimized JVM settings for containers
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:+UseG1GC", \
+    "-XX:+UseStringDeduplication", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "app.jar"]

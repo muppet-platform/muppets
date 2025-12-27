@@ -6,7 +6,7 @@ plugins {
 }
 
 version = "1.0.0"
-group = "com.muppetplatform.{{muppet_name}}"
+group = "com.muppetplatform.{{java_package_name}}"
 
 repositories {
     mavenCentral()
@@ -22,17 +22,19 @@ dependencies {
     // YAML Configuration
     runtimeOnly 'org.yaml:snakeyaml'
     
-    // Metrics and Monitoring
+    // Metrics and Monitoring (CloudWatch disabled for local development)
     implementation 'io.micronaut.micrometer:micronaut-micrometer-core'
-    implementation 'io.micronaut.micrometer:micronaut-micrometer-registry-cloudwatch'
+    // CloudWatch metrics - uncomment for production deployment
+    // implementation 'io.micronaut.micrometer:micronaut-micrometer-registry-cloudwatch'
     
     // Logging
     implementation 'ch.qos.logback:logback-classic'
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
-    implementation 'ca.pjer:logback-awslogs-appender:1.6.0'
+    // CloudWatch logging - uncomment for production deployment  
+    // implementation 'ca.pjer:logback-awslogs-appender:1.6.0'
     
-    // AWS SDK
-    implementation 'software.amazon.awssdk:cloudwatch:2.21.29'
+    // AWS SDK (commented out for local development)
+    // implementation 'software.amazon.awssdk:cloudwatch:2.21.29'
     
     // Testing
     testImplementation 'io.micronaut:micronaut-http-client'
@@ -47,7 +49,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'com.muppetplatform.{{muppet_name}}.Application'
+    mainClass = 'com.muppetplatform.{{java_package_name}}.Application'
 }
 
 java {
@@ -60,7 +62,7 @@ micronaut {
     testRuntime 'junit5'
     processing {
         incremental true
-        annotations 'com.muppetplatform.{{muppet_name}}.*'
+        annotations 'com.muppetplatform.{{java_package_name}}.*'
     }
 }
 
@@ -114,5 +116,14 @@ spotless {
         trimTrailingWhitespace()
         indentWithSpaces(4)
         endWithNewline()
+    }
+}
+
+// Configure Spotless to only run during explicit check, not during build
+// This prevents formatting issues from breaking Docker builds
+// Developers should run 'make format' or './gradlew spotlessApply' to fix formatting
+gradle.taskGraph.whenReady { taskGraph ->
+    if (taskGraph.hasTask(tasks.build) && !taskGraph.hasTask(tasks.check)) {
+        tasks.spotlessCheck.enabled = false
     }
 }

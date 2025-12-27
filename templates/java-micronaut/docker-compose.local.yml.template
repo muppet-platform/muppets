@@ -12,6 +12,8 @@ services:
       - MUPPET_NAME={{muppet_name}}
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - ENVIRONMENT=development
+      # Use LocalStack when available, otherwise skip AWS services
+      - AWS_ENDPOINT_OVERRIDE=${AWS_ENDPOINT_OVERRIDE:-}
     env_file:
       - .env.local
     healthcheck:
@@ -20,25 +22,54 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - muppet-network
+    depends_on:
+      - localstack
+    profiles:
+      - full-stack
 
   # LocalStack for AWS service simulation (optional)
+  # Start with: docker-compose --profile full-stack up
   localstack:
     image: localstack/localstack:latest
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=cloudwatch,logs,ecs
-      - DEBUG=1
+      - SERVICES=s3,dynamodb,sqs,sns,cloudwatch,logs,ssm
+      - DEBUG=0
       - DATA_DIR=/tmp/localstack/data
       - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
     volumes:
       - "/tmp/localstack:/tmp/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
-    networks:
-      - muppet-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - full-stack
 
-networks:
-  muppet-network:
-    driver: bridge
+  # Standalone app service (default)
+  {{muppet_name}}-standalone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - MICRONAUT_ENVIRONMENTS=development
+      - MUPPET_NAME={{muppet_name}}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - ENVIRONMENT=development
+    env_file:
+      - .env.local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
