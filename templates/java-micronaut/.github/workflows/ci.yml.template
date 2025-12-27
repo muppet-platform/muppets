@@ -35,7 +35,12 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew build test --no-daemon
-
+          
+      - name: Prepare JAR for Docker
+        run: |
+          # Copy the shadow JAR to the expected location for Docker
+          cp build/libs/{{muppet_name}}-1.0.0-all.jar build/libs/app.jar
+          
       - name: Build Docker image
         run: docker build -t ${{ github.repository }}:${{ github.sha }} .
 
