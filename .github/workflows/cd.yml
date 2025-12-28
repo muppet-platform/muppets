@@ -37,6 +37,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history
+          lfs: true       # Fetch LFS files if any
 
       - name: Set up Python
         uses: actions/setup-python@v4
