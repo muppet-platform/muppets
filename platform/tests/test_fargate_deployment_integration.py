@@ -74,7 +74,7 @@ def app(mock_state_manager, mock_deployment_service, mock_lifecycle_service):
     )
 
     # Include routers
-    app.include_router(health.router, prefix="/health", tags=["health"])
+    app.include_router(health.router, tags=["health"])  # Remove prefix to match main app
     app.include_router(muppets.router, prefix="/api/v1/muppets", tags=["muppets"])
 
     # Override dependencies

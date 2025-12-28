@@ -125,11 +125,15 @@ async def test_get_state_after_initialization(state_manager):
 
 @pytest.mark.asyncio
 async def test_get_state_not_initialized(state_manager):
-    """Test that get_state raises exception when not initialized."""
-    with pytest.raises(PlatformException) as exc_info:
-        await state_manager.get_state()
-
-    assert exc_info.value.error_type == "STATE_NOT_INITIALIZED"
+    """Test that get_state returns empty state when not initialized."""
+    state = await state_manager.get_state()
+    
+    # Should return empty state instead of raising exception
+    assert isinstance(state, PlatformState)
+    assert len(state.muppets) == 0
+    assert state.initialized is False
+    assert len(state.active_deployments) == 0
+    assert len(state.terraform_versions) == 0
 
 
 @pytest.mark.asyncio
