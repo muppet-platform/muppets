@@ -81,7 +81,7 @@ jobs:
             --push \
             -t $IMAGE_TAG \
             -f platform/docker/Dockerfile \
-            platform/
+            .
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Set up OpenTofu
