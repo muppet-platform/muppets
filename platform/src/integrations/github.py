@@ -1608,50 +1608,13 @@ class GitHubClient:
             return {
                 "ci.yml": self._get_java_ci_workflow(),
                 "cd.yml": self._get_java_cd_workflow(),
-                "security.yml": self._get_security_workflow(),
             }
         else:
             # Default to Java Micronaut workflows for all templates
             return {
                 "ci.yml": self._get_java_ci_workflow(),
                 "cd.yml": self._get_java_cd_workflow(),
-                "security.yml": self._get_security_workflow(),
             }
-
-    def _get_security_workflow(self) -> str:
-        """Get security scanning workflow."""
-        return """name: Security Scan
-
-on:
-  schedule:
-    - cron: '0 2 * * *'  # Run daily at 2 AM UTC
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-"""
 
     def _get_java_ci_workflow(self) -> str:
         """Get Java Micronaut CI workflow."""
