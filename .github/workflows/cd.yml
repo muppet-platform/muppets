@@ -69,23 +69,22 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/arm64
 
       - name: Build and push Docker image
         id: build
         run: |
           IMAGE_TAG=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           
-          # Build and push Docker image from root directory
+          # Build and push Docker image from root directory using buildx
           echo "🔍 Building Docker image from $(pwd)..."
-          docker build \
+          docker buildx build \
             --platform linux/arm64 \
+            --push \
             -t $IMAGE_TAG \
             -f platform/docker/Dockerfile \
             .
-          
-          # Push the built image
-          echo "📤 Pushing image to ECR..."
-          docker push $IMAGE_TAG
           
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
