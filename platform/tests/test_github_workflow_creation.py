@@ -112,7 +112,9 @@ jobs:
             # Should have simplified workflow files (CI and CD only)
             assert "ci.yml" in workflow_names, "CI workflow should be generated"
             assert "cd.yml" in workflow_names, "CD workflow should be generated"
-            assert len(workflow_names) == 2, f"Should have exactly 2 workflows, found: {workflow_names}"
+            assert (
+                len(workflow_names) == 2
+            ), f"Should have exactly 2 workflows, found: {workflow_names}"
 
             # Verify workflow content contains Java 21 LTS enforcement
             ci_content = (workflows_dir / "ci.yml").read_text()
@@ -122,7 +124,7 @@ jobs:
             assert (
                 "distribution: 'corretto'" in ci_content
             ), "CI workflow should use Amazon Corretto"
-            
+
             # Verify security scanning is integrated into CI workflow
             assert (
                 "trivy-action" in ci_content

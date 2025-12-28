@@ -1,78 +1,86 @@
-name: CI Pipeline
+# Simplified CI workflow for Muppet Platform
+name: CI
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 env:
   PYTHON_VERSION: '3.11'
 
 jobs:
-  # Essential Job 1: Tests & Quality (Combined)
-  tests-and-quality:
-    name: Tests & Quality
+  test-and-build:
     runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        
-    - name: Install dependencies
-      run: |
-        cd platform
-        uv sync --dev
-        
-    - name: Run tests
-      run: |
-        cd platform
-        uv run pytest tests/ -v --tb=short
-        
-    - name: Check code formatting
-      run: |
-        cd platform
-        uv run black --check src/ tests/
-        
-    - name: Check import sorting
-      run: |
-        cd platform
-        uv run isort --check-only src/ tests/
 
-  # Essential Job 2: Template Validation
-  template-validation:
-    name: Template Validation
-    runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Java (Amazon Corretto 21 LTS)
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'corretto'
+      - name: Checkout code
+        uses: actions/checkout@v4
         
-    - name: Verify Java version
-      run: |
-        java -version 2>&1 | grep -q "21.*LTS" && echo "✅ Java 21 LTS detected" || (echo "❌ Non-LTS Java version detected" && exit 1)
-        
-    - name: Validate template files
-      run: |
-        cd templates/java-micronaut
-        test -f Dockerfile.template
-        test -f build.gradle.template
-        test -f template.yaml
-        test -f .env.local
-        echo "✅ Template files validated"
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          
+      - name: Install dependencies
+        run: |
+          cd platform
+          uv sync --dev
+          
+      - name: Run tests and quality checks
+        run: |
+          cd platform
+          # Run tests
+          uv run pytest tests/ -v --tb=short
+          # Check code formatting
+          uv run black --check src/ tests/
+          # Check import sorting
+          uv run isort --check-only src/ tests/
+          
+      - name: Set up Java (Amazon Corretto 21 LTS)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'corretto'
+          
+      - name: Validate Java 21 LTS and templates
+        run: |
+          # Verify Java 21 LTS
+          java -version 2>&1 | grep -q "21.*LTS" && echo "✅ Java 21 LTS detected" || (echo "❌ Non-LTS Java version detected" && exit 1)
+          # Validate template files
+          cd templates/java-micronaut
+          test -f Dockerfile.template
+          test -f build.gradle.template
+          test -f template.yaml
+          test -f .env.local
+          echo "✅ Template files validated"
+          
+      - name: Upload platform artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-artifacts
+          path: |
+            platform/src/
+            platform/mcp/
+            platform/docker/
+            platform/requirements.txt
+            platform/pyproject.toml
+          retention-days: 1
+          
+      - name: Build Docker image
+        run: |
+          cd platform
+          docker build -f docker/Dockerfile -t muppet-platform:${{ github.sha }} .
+
+      - name: Basic security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './platform'
+          format: 'table'

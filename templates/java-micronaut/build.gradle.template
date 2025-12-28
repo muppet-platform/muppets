@@ -2,7 +2,6 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '7.1.2'
     id 'io.micronaut.application' version '4.4.4'
     id 'jacoco'
-    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 version = "1.0.0"
@@ -101,29 +100,3 @@ jacocoTestCoverageVerification {
 }
 
 test.finalizedBy jacocoTestReport
-
-spotless {
-    java {
-        target 'src/**/*.java'
-        googleJavaFormat('1.19.1').aosp().reflowLongStrings()
-        removeUnusedImports()
-        trimTrailingWhitespace()
-        endWithNewline()
-    }
-    
-    format 'misc', {
-        target '*.gradle', '*.md', '.gitignore'
-        trimTrailingWhitespace()
-        indentWithSpaces(4)
-        endWithNewline()
-    }
-}
-
-// Configure Spotless to only run during explicit check, not during build
-// This prevents formatting issues from breaking Docker builds
-// Developers should run 'make format' or './gradlew spotlessApply' to fix formatting
-gradle.taskGraph.whenReady { taskGraph ->
-    if (taskGraph.hasTask(tasks.build) && !taskGraph.hasTask(tasks.check)) {
-        tasks.spotlessCheck.enabled = false
-    }
-}

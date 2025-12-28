@@ -87,7 +87,7 @@ class TestServiceUrlDiscovery:
 
         # Check for deployment info structure
         assert (
-            "service_name = aws_ecs_service.app.name" in content
+            "service_name      = aws_ecs_service.app.name" in content
         ), "Should include service name in deployment info"
         assert (
             "load_balancer_dns = aws_lb.main.dns_name" in content
@@ -96,7 +96,7 @@ class TestServiceUrlDiscovery:
             'health_check_path = "/health"' in content
         ), "Should include health check path in deployment info"
         assert (
-            "environment = var.environment" in content
+            "environment       = var.environment" in content
         ), "Should include environment in deployment info"
 
     def test_direct_resource_references(self, outputs_tf_template):

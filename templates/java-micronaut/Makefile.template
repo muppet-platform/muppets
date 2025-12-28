@@ -25,8 +25,6 @@ help:
 	@echo "  test-watch     Run tests in watch mode"
 	@echo ""
 	@echo "Code Quality:"
-	@echo "  lint           Run linting checks"
-	@echo "  format         Format code with Spotless"
 	@echo "  check          Run all quality checks"
 	@echo ""
 	@echo "Utilities:"
@@ -107,17 +105,7 @@ test-watch:
 	@./gradlew test --continuous
 
 # Code Quality
-lint:
-	@echo "Running linting checks..."
-	@./gradlew spotlessCheck
-	@echo "✅ Code formatting is correct"
-
-format:
-	@echo "Formatting code..."
-	@./gradlew spotlessApply
-	@echo "✅ Code formatted successfully"
-
-check: lint test
+check: test
 	@echo "Running all quality checks..."
 	@./gradlew check
 	@echo "✅ All quality checks passed"

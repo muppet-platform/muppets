@@ -216,11 +216,11 @@ class InfrastructureTemplateProcessor:
                 "port": template_metadata.get("port", 3000),
                 "java_version": template_metadata.get("java_version", "21"),
                 "enable_tls": True,  # Always enable TLS
-                "aws_region": variables.get("aws_region", "us-west-2"),
             }
         )
 
         # Add user-provided variables (these can override defaults)
+        # This includes aws_region which should override the default
         template_vars.update(variables)
 
         return template_vars

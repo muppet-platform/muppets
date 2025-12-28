@@ -41,6 +41,16 @@ jobs:
           # Copy the shadow JAR to the expected location for Docker
           cp build/libs/*-all.jar build/libs/app.jar
           
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            build/libs/app.jar
+            Dockerfile
+            terraform/
+          retention-days: 1
+          
       - name: Build Docker image
         run: docker build -t ${{ github.repository }}:${{ github.sha }} .
 

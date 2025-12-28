@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional
 from ..config import get_settings
 from ..exceptions import PlatformException
 from ..logging_config import get_logger
-from .infrastructure_template_processor import InfrastructureTemplateProcessor
 
 logger = get_logger(__name__)
 
@@ -88,10 +87,7 @@ class AutoGenerator:
 
     def __init__(self):
         self.settings = get_settings()
-        self.infrastructure_processor = InfrastructureTemplateProcessor()
-        logger.info(
-            "Auto-generator initialized with template-based infrastructure processing"
-        )
+        logger.info("Auto-generator initialized with simplified template processing")
 
     def generate_infrastructure(
         self,
@@ -101,7 +97,8 @@ class AutoGenerator:
         config: GenerationConfig,
     ) -> None:
         """
-        Generate infrastructure using template-based approach.
+        Generate infrastructure using simplified template approach.
+        Infrastructure templates are now processed directly by TemplateManager.
 
         Args:
             template_metadata: Template metadata
@@ -113,34 +110,7 @@ class AutoGenerator:
             return
 
         logger.info(
-            f"Generating infrastructure for {template_metadata.name} template using templates"
-        )
-
-        # Prepare template metadata for processor
-        template_meta_dict = {
-            "name": template_metadata.name,
-            "version": template_metadata.version,
-            "description": template_metadata.description,
-            "language": template_metadata.language,
-            "framework": template_metadata.framework,
-            "port": template_metadata.port,
-            "java_version": template_metadata.java_version,
-            "java_distribution": template_metadata.java_distribution,
-            "framework_version": template_metadata.framework_version,
-            "build_tool": template_metadata.build_tool,
-            "features": template_metadata.features or [],
-        }
-
-        # Prepare variables for template processing
-        template_variables = {
-            "enable_tls": config.enable_tls,
-            "aws_region": "us-west-2",  # Default, can be overridden
-            "environment": "development",  # Default, can be overridden
-        }
-
-        # Use template processor to generate infrastructure
-        self.infrastructure_processor.generate_infrastructure(
-            template_meta_dict, muppet_name, output_path, template_variables
+            f"Infrastructure generation for {template_metadata.name} handled by TemplateManager"
         )
 
         # Generate Dockerfile for Java applications with Java 21 LTS
@@ -148,7 +118,7 @@ class AutoGenerator:
             dockerfile_content = self._generate_java_dockerfile(template_metadata)
             (output_path / "Dockerfile").write_text(dockerfile_content)
 
-        logger.info("Infrastructure generation completed using templates")
+        logger.info("Infrastructure generation completed")
 
     def generate_cicd(
         self,
@@ -178,10 +148,16 @@ class AutoGenerator:
         workflows_dir = output_path / ".github" / "workflows"
         if workflows_dir.exists():
             workflow_files = list(workflows_dir.glob("*.yml"))
-            logger.info(f"Found {len(workflow_files)} workflow files: {[f.name for f in workflow_files]}")
-            print(f"🔍 DEBUG: Found {len(workflow_files)} workflow files: {[f.name for f in workflow_files]}")
+            logger.info(
+                f"Found {len(workflow_files)} workflow files: {[f.name for f in workflow_files]}"
+            )
+            print(
+                f"🔍 DEBUG: Found {len(workflow_files)} workflow files: {[f.name for f in workflow_files]}"
+            )
         else:
-            logger.warning("No workflows directory found - workflows may not have been processed")
+            logger.warning(
+                "No workflows directory found - workflows may not have been processed"
+            )
             print("🔍 DEBUG: No workflows directory found")
 
         logger.info("CI/CD generation completed")

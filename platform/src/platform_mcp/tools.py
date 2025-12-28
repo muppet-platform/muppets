@@ -1169,8 +1169,8 @@ class MCPToolRegistry:
 
         # Map of template files to read
         workflow_files = {
-            "ci.yml": f"templates/{template_type}/.github-templates/workflows/ci.yml.template",
-            "deploy.yml": f"templates/{template_type}/.github-templates/workflows/deploy.yml.template",
+            "ci.yml": f"templates/{template_type}/.github/workflows/ci.yml.template",
+            "cd.yml": f"templates/{template_type}/.github/workflows/cd.yml.template",
         }
 
         github_client = GitHubClient()

@@ -62,12 +62,13 @@ class GenerationContext:
     environment: str = "development"
 
     def get_all_variables(self) -> Dict[str, Any]:
-        """Get all template variables including defaults."""
+        """Get all template variables with proper precedence: user parameters override defaults."""
+        # Start with context values (these should be used as defaults)
         variables = {
             "muppet_name": self.muppet_name,
             "template_name": self.template_name,
-            "aws_region": self.aws_region,
-            "environment": self.environment,
+            "aws_region": self.aws_region,  # Use context aws_region, not hardcoded default
+            "environment": self.environment,  # Use context environment, not hardcoded default
         }
 
         # Add platform path for MCP server configuration
@@ -81,7 +82,9 @@ class GenerationContext:
                 self.muppet_name
             )
 
+        # User parameters override everything (CRITICAL: this must come last)
         variables.update(self.parameters)
+
         return variables
 
     def _to_java_package_name(self, name: str) -> str:
@@ -573,8 +576,12 @@ class TemplateManager:
                 config = yaml.safe_load(f)
         except Exception as e:
             logger.warning(f"Could not load template config: {e}")
-            # Fallback to processing all files
-            self._process_template_files(template_path, output_path, variables)
+            # Process all files if config can't be loaded
+            for item in template_path.rglob("*"):
+                if item.is_file() and item.name not in ["template.yaml", ".gitkeep"]:
+                    self._process_single_template_file(
+                        item, output_path, variables, template_path
+                    )
             return
 
         # Determine which files to process based on auto-generation settings

@@ -25,14 +25,19 @@ class TestS3BackendIntegration:
 
     @pytest.fixture
     def backend_tf_template(self, terraform_template_dir):
-        """Get the backend.tf template content."""
-        template_path = terraform_template_dir / "backend.tf.template"
+        """Get the backend configuration from main.tf template (integrated approach)."""
+        # Backend configuration is now integrated into main.tf.template to avoid duplication
+        template_path = terraform_template_dir / "main.tf.template"
         return template_path.read_text()
 
     def test_backend_tf_template_exists(self, terraform_template_dir):
-        """Test that S3 backend template exists."""
-        backend_template = terraform_template_dir / "backend.tf.template"
-        assert backend_template.exists(), "S3 backend template should exist"
+        """Test that main.tf template exists with integrated backend configuration."""
+        main_template = terraform_template_dir / "main.tf.template"
+        assert main_template.exists(), "Main terraform template with integrated backend should exist"
+        
+        # Verify backend configuration is integrated into main.tf
+        content = main_template.read_text()
+        assert 'backend "s3"' in content, "Backend configuration should be integrated into main.tf"
 
     def test_s3_backend_configuration(self, backend_tf_template):
         """Test S3 backend configuration generation."""
@@ -42,16 +47,16 @@ class TestS3BackendIntegration:
         assert "terraform {" in content, "Should contain terraform configuration block"
         assert 'backend "s3" {' in content, "Should specify S3 backend"
 
-        # Check for required S3 backend parameters (note the spacing in actual template)
+        # Check for required S3 backend parameters (flexible spacing)
         assert (
-            'bucket         = "muppet-platform-terraform-state"' in content
+            'bucket = "muppet-platform-terraform-state"' in content
         ), "Should specify state bucket"
         assert (
-            'key            = "muppets/{{muppet_name}}/terraform.tfstate"' in content
+            'key    = "muppets/{{muppet_name}}/terraform.tfstate"' in content
         ), "Should use muppet-specific state key template"
         assert (
-            'region         = "us-west-2"' in content
-        ), "Should use hardcoded region (not template variable)"
+            'region = "{{aws_region}}"' in content
+        ), "Should use template variable for region"
 
         # Check for state locking
         assert (
@@ -65,7 +70,7 @@ class TestS3BackendIntegration:
 
         # Should use template variable for muppet name
         assert (
-            'key            = "muppets/{{muppet_name}}/terraform.tfstate"' in content
+            'key    = "muppets/{{muppet_name}}/terraform.tfstate"' in content
         ), "Should use muppet_name template variable"
 
     def test_backend_variable_substitution(self, backend_tf_template):
@@ -82,12 +87,12 @@ class TestS3BackendIntegration:
 
         # All muppets should use the same bucket (note the spacing)
         assert (
-            'bucket         = "muppet-platform-terraform-state"' in content
+            'bucket = "muppet-platform-terraform-state"' in content
         ), "Should use shared state bucket"
 
         # But different keys for isolation
         assert (
-            'key            = "muppets/{{muppet_name}}/terraform.tfstate"' in content
+            'key    = "muppets/{{muppet_name}}/terraform.tfstate"' in content
         ), "Should use muppet-specific key template"
 
     def test_state_locking_configuration(self, backend_tf_template):
@@ -125,13 +130,13 @@ class TestS3BackendIntegration:
                     ), f"Assignment line should be valid: {line}"
 
     def test_aws_region_hardcoded(self, backend_tf_template):
-        """Test backend configuration uses hardcoded AWS region."""
+        """Test backend configuration uses template variable for AWS region."""
         content = backend_tf_template
 
-        # Should use hardcoded region (not template variable)
+        # Should use template variable for region (not hardcoded)
         assert (
-            'region         = "us-west-2"' in content
-        ), "Should use hardcoded us-west-2 region"
+            'region = "{{aws_region}}"' in content
+        ), "Should use template variable for region"
 
     def test_backend_comments_and_documentation(self, backend_tf_template):
         """Test that backend configuration includes helpful comments."""
@@ -139,8 +144,8 @@ class TestS3BackendIntegration:
 
         # Should include explanatory comments (matching actual content)
         assert (
-            "# S3 backend configuration for shared state management" in content
-        ), "Should include backend explanation"
+            "# State locking" in content
+        ), "Should include state locking explanation"
         assert (
-            "# Enables state sharing between local development and CI/CD" in content
-        ), "Should explain state sharing"
+            "# Simplified infrastructure for {{muppet_name}}" in content
+        ), "Should include infrastructure explanation"

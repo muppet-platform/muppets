@@ -5,6 +5,16 @@
 terraform {
   required_version = ">= 1.5"
   
+  backend "s3" {
+    bucket = "muppet-platform-terraform-state"
+    key    = "muppets/{{muppet_name}}/terraform.tfstate"
+    region = "{{aws_region}}"
+    
+    # State locking
+    dynamodb_table = "muppet-platform-terraform-locks"
+    encrypt        = true
+  }
+  
   required_providers {
     aws = {
       source  = "hashicorp/aws"

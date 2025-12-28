@@ -2,7 +2,10 @@
 name: CD
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches: [ main ]
   workflow_dispatch:
     inputs:
@@ -21,20 +24,38 @@ env:
   MUPPET_NAME: {{muppet_name}}
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ github.event.inputs.environment || 'development' }}
+    # Only run if CI succeeded (for workflow_run) or if manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Amazon Corretto JDK 21
+      - name: Download build artifacts
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: .
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Set up Amazon Corretto JDK 21 (manual deployment only)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'corretto'
+
+      - name: Build JAR (manual deployment only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          ./gradlew shadowJar
+          cp build/libs/*-all.jar build/libs/app.jar
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -51,14 +72,6 @@ jobs:
         run: |
           aws ecr describe-repositories --repository-names ${{ env.MUPPET_NAME }} || \
           aws ecr create-repository --repository-name ${{ env.MUPPET_NAME }} --image-scanning-configuration scanOnPush=true
-
-      - name: Build JAR
-        run: |
-          ./gradlew shadowJar
-          ls -la build/libs/
-          # Copy the shadow JAR to the expected name for Docker
-          cp build/libs/*-all.jar build/libs/app.jar
-          ls -la build/libs/app.jar
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
