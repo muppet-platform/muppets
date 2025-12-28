@@ -178,6 +178,28 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Additional policy for SSM parameter access
+resource "aws_iam_role_policy" "execution_ssm" {
+  name = "muppet-platform-execution-ssm-policy"
+  role = aws_iam_role.execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameters",
+          "ssm:GetParameter"
+        ]
+        Resource = [
+          aws_ssm_parameter.github_token.arn
+        ]
+      }
+    ]
+  })
+}
+
 # IAM Role for ECS Task (platform service permissions)
 resource "aws_iam_role" "task" {
   name = "muppet-platform-task-role"
