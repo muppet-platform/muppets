@@ -135,12 +135,46 @@ jobs:
             --service $SERVICE_NAME \
             --force-new-deployment
           
-          echo "⏳ Waiting for service to stabilize..."
-          aws ecs wait services-stable \
+          echo "⏳ Waiting for service to stabilize (max 5 minutes)..."
+          
+          # Wait with shorter timeout and better error handling
+          timeout 300 aws ecs wait services-stable \
             --cluster $CLUSTER_NAME \
-            --services $SERVICE_NAME \
-            --cli-read-timeout 900 \
-            --cli-connect-timeout 60
+            --services $SERVICE_NAME || {
+            
+            echo "❌ Service did not stabilize within 5 minutes. Checking service status..."
+            
+            # Get service events to diagnose issues
+            aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].events[0:3].{Time:createdAt,Message:message}' \
+              --output table
+            
+            # Get task definition and running tasks info
+            echo ""
+            echo "📋 Current service status:"
+            aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}' \
+              --output table
+            
+            # Check if there are any running tasks
+            RUNNING_COUNT=$(aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].runningCount' \
+              --output text)
+            
+            if [ "$RUNNING_COUNT" = "0" ]; then
+              echo "❌ No tasks are running. Deployment failed."
+              echo "💡 Check CloudWatch logs: https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups/log-group/%2Fecs%2Fmuppet-platform"
+              exit 1
+            else
+              echo "⚠️  Service is running but not stable. Continuing with deployment verification..."
+            fi
+          }
 
       - name: Verify deployment
         run: |
@@ -151,22 +185,45 @@ jobs:
             --output text)
           
           echo "🔍 Verifying platform deployment..."
+          echo "Load Balancer DNS: $ALB_DNS"
+          
+          # Check if we have running tasks first
+          RUNNING_COUNT=$(aws ecs describe-services \
+            --cluster muppet-platform-cluster \
+            --services muppet-platform \
+            --query 'services[0].runningCount' \
+            --output text)
+          
+          echo "Running tasks: $RUNNING_COUNT"
+          
+          if [ "$RUNNING_COUNT" = "0" ]; then
+            echo "❌ No tasks are running. Skipping health check."
+            echo "🔗 Check ECS service: https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#/clusters/muppet-platform-cluster/services/muppet-platform/details"
+            exit 1
+          fi
           
           # Wait for ALB to be ready and test health endpoint
-          for i in {1..30}; do
+          echo "🏥 Testing health endpoint..."
+          for i in {1..20}; do
             if curl -f -s "http://${ALB_DNS}/health" > /dev/null; then
               echo "✅ Platform health check successful"
+              
+              # Show the health response
+              echo ""
+              echo "🏥 Platform Health Response:"
+              curl -s "http://${ALB_DNS}/health" | jq . || echo "Health check returned non-JSON response"
               break
             else
-              echo "⏳ Waiting for platform to be ready... (attempt $i/30)"
-              sleep 10
+              echo "⏳ Waiting for platform to be ready... (attempt $i/20)"
+              if [ $i -eq 20 ]; then
+                echo "❌ Health check failed after 20 attempts"
+                echo "🔗 Check ALB target health: https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#TargetGroups:"
+                echo "🔗 Check CloudWatch logs: https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups/log-group/%2Fecs%2Fmuppet-platform"
+                exit 1
+              fi
+              sleep 15
             fi
           done
-          
-          # Test the health endpoint and show response
-          echo ""
-          echo "🏥 Platform Health Check:"
-          curl -s "http://${ALB_DNS}/health" | jq . || echo "Health check returned non-JSON response"
 
       - name: Update GitHub Token in SSM (if provided)
         if: env.PLATFORM_GITHUB_TOKEN != ''
