@@ -44,23 +44,15 @@ data "aws_subnets" "default" {
   }
 }
 
-# ECR Repository for platform images
-resource "aws_ecr_repository" "platform" {
-  name                 = "muppet-platform"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = merge(local.common_tags, {
-    Name = "muppet-platform-ecr"
-  })
+# ECR Repository is created by CD workflow step "Ensure ECR repository exists"
+# Reference existing repository by name
+data "aws_ecr_repository" "platform" {
+  name = "muppet-platform"
 }
 
 # ECR Lifecycle Policy (separate resource)
 resource "aws_ecr_lifecycle_policy" "platform" {
-  repository = aws_ecr_repository.platform.name
+  repository = data.aws_ecr_repository.platform.name
 
   policy = jsonencode({
     rules = [
@@ -281,7 +273,7 @@ resource "aws_ecs_task_definition" "platform" {
   container_definitions = jsonencode([
     {
       name  = "muppet-platform"
-      image = "${aws_ecr_repository.platform.repository_url}:${var.image_tag}"
+      image = "${data.aws_ecr_repository.platform.repository_url}:${var.image_tag}"
       
       portMappings = [
         {

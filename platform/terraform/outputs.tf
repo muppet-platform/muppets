@@ -32,7 +32,7 @@ output "ecs_service_name" {
 
 output "ecr_repository_url" {
   description = "URL of the ECR repository"
-  value       = aws_ecr_repository.platform.repository_url
+  value       = data.aws_ecr_repository.platform.repository_url
 }
 
 output "cloudwatch_log_group" {
