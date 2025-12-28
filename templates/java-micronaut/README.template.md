@@ -165,6 +165,8 @@ docker-compose --profile full-stack up
 ```
 
 ### AWS Deployment
+
+#### Infrastructure Management
 Infrastructure is managed with OpenTofu (Terraform):
 
 ```bash
@@ -173,6 +175,42 @@ tofu init
 tofu plan
 tofu apply
 ```
+
+#### GitHub CI/CD Setup
+
+**Required GitHub Secrets:**
+Configure these secrets in your GitHub repository (Settings → Secrets and variables → Actions):
+
+1. **AWS_ACCESS_KEY_ID** - AWS access key with deployment permissions
+2. **AWS_SECRET_ACCESS_KEY** - AWS secret access key
+
+**Required AWS Permissions:**
+- ECR: Create repositories, push/pull images
+- ECS: Create/update clusters, services, task definitions
+- IAM: Create/manage service roles
+- EC2: Manage security groups, load balancers, VPC resources
+- CloudWatch: Create/manage log groups
+- Application Auto Scaling: Manage scaling policies
+
+**Deployment Process:**
+The CD workflow automatically:
+1. ✅ Builds JAR file with Gradle
+2. ✅ Creates ECR repository if needed
+3. ✅ Builds and pushes ARM64 Docker image
+4. ✅ Deploys infrastructure with OpenTofu
+5. ✅ Updates ECS service with new image
+6. ✅ Waits for deployment to stabilize
+
+**Triggering Deployments:**
+- **Automatic**: Push to main branch
+- **Manual**: Actions → CD → Run workflow
+- **Environment**: Select development/staging/production
+
+**Monitoring Deployment:**
+- **Application URL**: Available in workflow output
+- **Health Check**: Accessible at `/health` endpoint
+- **Logs**: Available in CloudWatch
+- **Metrics**: ECS service metrics in AWS console
 
 ## 🔍 Monitoring and Health
 
@@ -246,6 +284,22 @@ make build
 ./gradlew --version
 ```
 
+**Deployment Issues**
+```bash
+# Check GitHub Actions logs for detailed errors
+# Common issues:
+# - Permission Denied: Verify AWS credentials and permissions
+# - ECR Push Failed: Check ECR permissions and repository access
+# - ECS Deployment Failed: Validate task definition and service config
+# - Health Check Failed: Verify application starts and /health responds
+
+# Debug steps:
+# 1. Check CloudWatch logs for application startup issues
+# 2. Validate security group and networking configuration
+# 3. Verify AWS credentials have required permissions
+# 4. Test local Docker build: make build && docker run <image>
+```
+
 ### Performance Tuning
 
 **JVM Settings** (already optimized in Dockerfile):
@@ -274,6 +328,14 @@ make build
 2. Run `make format` before committing
 3. Ensure all tests pass with `make test`
 4. Update documentation for new features
+
+### Security Best Practices
+
+- Use IAM roles with minimal required permissions
+- Rotate AWS credentials regularly
+- Enable CloudTrail for audit logging
+- Use environment-specific secrets for staging/production
+- Review and approve production deployments
 
 ## 📄 License
 

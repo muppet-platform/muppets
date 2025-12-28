@@ -89,7 +89,7 @@ jobs:
         run: |
           echo "🔍 Starting OpenTofu deployment with verbose logging..."
           
-          # Initialize with S3 backend for shared state management
+          # Initialize with local state for now (in production, use S3 backend)
           echo "📦 Initializing OpenTofu..."
           tofu init -input=false
           

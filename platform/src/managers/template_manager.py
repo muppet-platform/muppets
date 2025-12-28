@@ -806,14 +806,19 @@ class TemplateManager:
         output_file = output_path / processed_rel_path
 
         # Handle .template files (remove .template extension after processing)
-        if template_file.suffix == ".template":
-            output_file = output_file.with_suffix("")
+        if ".template" in template_file.name:
+            # Remove .template from the filename
+            # e.g., README.template.md -> README.md
+            name_parts = template_file.name.split(".template")
+            if len(name_parts) == 2:
+                new_name = name_parts[0] + name_parts[1]  # Join parts without .template
+                output_file = output_file.parent / new_name
 
         # Ensure output directory exists
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Process file based on content type
-        if template_file.suffix == ".template" or self._contains_template_syntax(
+        if ".template" in template_file.name or self._contains_template_syntax(
             template_file
         ):
             # Template file - process with variable replacement

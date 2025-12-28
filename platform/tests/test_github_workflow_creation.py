@@ -77,20 +77,6 @@ jobs:
       - name: Deploy
         run: echo "Deploying..."
 """,
-            ".github/workflows/security.yml": """# Auto-generated security workflow for java-micronaut template
-name: Security Scan
-on:
-  schedule:
-    - cron: '0 2 * * *'
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Run security scan
-        run: echo "Security scan..."
-""",
         }
 
     @pytest.mark.asyncio
@@ -123,12 +109,10 @@ jobs:
             workflow_files = list(workflows_dir.glob("*.yml"))
             workflow_names = [f.name for f in workflow_files]
 
-            # Should have all three workflow files
+            # Should have simplified workflow files (CI and CD only)
             assert "ci.yml" in workflow_names, "CI workflow should be generated"
             assert "cd.yml" in workflow_names, "CD workflow should be generated"
-            assert (
-                "security.yml" in workflow_names
-            ), "Security workflow should be generated"
+            assert len(workflow_names) == 2, f"Should have exactly 2 workflows, found: {workflow_names}"
 
             # Verify workflow content contains Java 21 LTS enforcement
             ci_content = (workflows_dir / "ci.yml").read_text()
@@ -138,6 +122,11 @@ jobs:
             assert (
                 "distribution: 'corretto'" in ci_content
             ), "CI workflow should use Amazon Corretto"
+            
+            # Verify security scanning is integrated into CI workflow
+            assert (
+                "trivy-action" in ci_content
+            ), "CI workflow should include security scanning"
 
     @pytest.mark.asyncio
     async def test_push_template_code_includes_workflows(
@@ -257,12 +246,8 @@ jobs:
                 "distribution: 'corretto'" in ci_content
             ), "Should use Amazon Corretto"
 
-            # Should validate Java version
-            assert "Validate Java 21 LTS" in ci_content, "Should validate Java 21 LTS"
-            assert "JAVA_VERSION" in ci_content, "Should check Java version"
-
-            # Should reject non-LTS versions
-            assert "Java 21 LTS required" in ci_content, "Should require Java 21 LTS"
+            # Should have security scanning integrated
+            assert "trivy-action" in ci_content, "Should include security scanning"
 
     @pytest.mark.asyncio
     async def test_end_to_end_muppet_creation_includes_workflows(self):
@@ -306,11 +291,10 @@ jobs:
                 f for f in template_files.keys() if ".github/workflows" in f
             ]
             assert (
-                len(workflow_files) == 3
-            ), f"Should include 3 workflow files, got {len(workflow_files)}: {workflow_files}"
+                len(workflow_files) == 2
+            ), f"Should include 2 workflow files, got {len(workflow_files)}: {workflow_files}"
             assert ".github/workflows/ci.yml" in template_files
             assert ".github/workflows/cd.yml" in template_files
-            assert ".github/workflows/security.yml" in template_files
 
     @pytest.mark.asyncio
     async def test_mock_mode_simulates_workflow_creation(

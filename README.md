@@ -1,8 +1,7 @@
 # Muppet Platform
 
-[![CI Pipeline](https://github.com/muppet-platform/muppets/actions/workflows/ci.yml/badge.svg)](https://github.com/muppet-platform/muppets/actions/workflows/ci.yml)
-[![CD Pipeline](https://github.com/muppet-platform/muppets/actions/workflows/cd.yml/badge.svg)](https://github.com/muppet-platform/muppets/actions/workflows/cd.yml)
-[![Security Scan](https://github.com/muppet-platform/muppets/actions/workflows/security.yml/badge.svg)](https://github.com/muppet-platform/muppets/actions/workflows/security.yml)
+[![CI Pipeline](https://github.com/YOUR_ORG/muppets/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/muppets/actions/workflows/ci.yml)
+[![CD Pipeline](https://github.com/YOUR_ORG/muppets/actions/workflows/cd.yml/badge.svg)](https://github.com/YOUR_ORG/muppets/actions/workflows/cd.yml)
 
 > Internal developer platform for creating and managing backend applications
 
@@ -22,7 +21,7 @@ The Muppet Platform enables rapid creation and management of standardized backen
 
 ```bash
 # Clone the repository
-git clone https://github.com/muppet-platform/muppets.git
+git clone https://github.com/YOUR_ORG/muppets.git
 cd muppets
 
 # Run setup script
@@ -318,8 +317,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: Check the `docs/` directory
-- **Issues**: [GitHub Issues](https://github.com/muppet-platform/muppets/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/muppet-platform/muppets/discussions)
+- **Issues**: [GitHub Issues](https://github.com/YOUR_ORG/muppets/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/YOUR_ORG/muppets/discussions)
 
 ## 🗺️ Roadmap
 
