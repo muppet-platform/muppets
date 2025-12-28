@@ -97,6 +97,12 @@ resource "aws_ecs_task_definition" "main" {
     }
   ])
 
+  # Use ARM64 architecture for better cost/performance ratio
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+
   tags = var.tags
 }
 

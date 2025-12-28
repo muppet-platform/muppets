@@ -1,6 +1,7 @@
-# Optimized build using pre-built JAR
+# Optimized build using pre-built JAR for ARM64 architecture
 # This Dockerfile expects the JAR to be built outside Docker for faster builds
-FROM amazoncorretto:21-alpine
+# ARM64 provides better cost/performance ratio on AWS Fargate
+FROM --platform=linux/arm64 amazoncorretto:21-alpine
 
 # Install curl for health checks
 RUN apk add --no-cache curl

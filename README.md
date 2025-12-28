@@ -44,6 +44,43 @@ cd platform && uv run uvicorn src.main:app --reload
 
 The platform will be available at `http://localhost:8000`
 
+## ⚙️ One-Time Platform Setup
+
+### Terraform State Backend (Required)
+
+**This is a one-time setup for the entire platform** - all muppets will share this state backend infrastructure.
+
+Before deploying any muppets, you must create the shared terraform state backend:
+
+```bash
+# Create S3 bucket for terraform state
+aws s3 mb s3://muppet-platform-terraform-state --region us-west-2
+
+# Enable versioning
+aws s3api put-bucket-versioning \
+  --bucket muppet-platform-terraform-state \
+  --versioning-configuration Status=Enabled
+
+# Enable encryption
+aws s3api put-bucket-encryption \
+  --bucket muppet-platform-terraform-state \
+  --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+
+# Create DynamoDB table for state locking
+aws dynamodb create-table \
+  --table-name muppet-platform-terraform-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+  --region us-west-2
+```
+
+**Note**: This setup is required only once per AWS account. All muppets will use:
+- **S3 Bucket**: `muppet-platform-terraform-state`
+- **DynamoDB Table**: `muppet-platform-terraform-locks`
+- **State Key Pattern**: `muppets/{muppet-name}/terraform.tfstate`
+
 ## 🏗️ Architecture
 
 The Muppet Platform is organized as a modular monorepo:
