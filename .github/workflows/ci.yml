@@ -67,11 +67,6 @@ jobs:
             platform/requirements.txt
             platform/pyproject.toml
           retention-days: 1
-          
-      - name: Build Docker image
-        run: |
-          cd platform
-          docker build -f docker/Dockerfile -t muppet-platform:${{ github.sha }} .
 
       - name: Basic security scan
         uses: aquasecurity/trivy-action@master

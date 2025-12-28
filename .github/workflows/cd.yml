@@ -70,68 +70,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Debug build context
-        run: |
-          echo "=== Build context contents ==="
-          ls -la
-          echo "=== Platform directory ==="
-          ls -la platform/ || echo "platform/ not found"
-          echo "=== Platform uv.lock ==="
-          ls -la platform/uv.lock || echo "platform/uv.lock not found"
-          echo "=== Templates directory ==="
-          ls -la templates/ || echo "templates/ not found"
-          echo "=== Terraform modules directory ==="
-          ls -la terraform-modules/ || echo "terraform-modules/ not found"
-          echo "=== Git status ==="
-          git status --porcelain
-          echo "=== Git tracked files (relevant) ==="
-          git ls-files | grep -E "(uv\.lock|terraform-modules|templates)" | head -10
-          echo "=== Working directory ==="
-          pwd
-          echo "=== File permissions ==="
-          ls -la platform/uv.lock terraform-modules/ 2>/dev/null || echo "Files not accessible"
-          
-      - name: Verify Docker build context files
-        run: |
-          echo "🔍 Verifying all files needed by Dockerfile exist..."
-          echo "✅ Checking platform/pyproject.toml: $(ls -la platform/pyproject.toml 2>/dev/null || echo 'MISSING')"
-          echo "✅ Checking platform/README.md: $(ls -la platform/README.md 2>/dev/null || echo 'MISSING')"
-          echo "✅ Checking platform/uv.lock: $(ls -la platform/uv.lock 2>/dev/null || echo 'MISSING')"
-          echo "✅ Checking platform/src/: $(ls -ld platform/src/ 2>/dev/null || echo 'MISSING')"
-          echo "✅ Checking templates/: $(ls -ld templates/ 2>/dev/null || echo 'MISSING')"
-          echo "✅ Checking terraform-modules/: $(ls -ld terraform-modules/ 2>/dev/null || echo 'MISSING')"
-          
-          # Test if we can read the files
-          echo "📖 Testing file readability..."
-          head -n 1 platform/pyproject.toml 2>/dev/null || echo "❌ Cannot read platform/pyproject.toml"
-          head -n 1 platform/README.md 2>/dev/null || echo "❌ Cannot read platform/README.md"
-        
       - name: Build and push Docker image
         id: build
         run: |
           IMAGE_TAG=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           
-          # Ensure we're in the root directory for Docker build context
-          cd $GITHUB_WORKSPACE
-          
-          # First build locally to verify context works
-          echo "🔍 Testing local Docker build from $(pwd)..."
+          # Build and push Docker image from root directory
+          echo "🔍 Building Docker image from $(pwd)..."
           docker build \
             --platform linux/arm64 \
             -t $IMAGE_TAG \
             -f platform/docker/Dockerfile \
             .
           
-          # Then push the built image
+          # Push the built image
           echo "📤 Pushing image to ECR..."
           docker push $IMAGE_TAG
           
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      - name: Install dependencies
-        run: |
-          cd platform
-          uv sync --dev
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v1
