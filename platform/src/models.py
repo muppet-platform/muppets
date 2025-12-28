@@ -111,6 +111,7 @@ class PlatformState:
     active_deployments: Dict[str, str]  # muppet_name -> fargate_arn
     terraform_versions: Dict[str, str]  # module_name -> version
     last_updated: datetime
+    initialized: bool = True  # Track if state was successfully initialized
 
     @classmethod
     def empty(cls) -> "PlatformState":
@@ -120,6 +121,7 @@ class PlatformState:
             active_deployments={},
             terraform_versions={},
             last_updated=datetime.utcnow(),
+            initialized=False,  # Empty state is not initialized
         )
 
     def get_muppet(self, name: str) -> Optional[Muppet]:

@@ -89,6 +89,29 @@ jobs:
         with:
           tofu_version: 1.6.0
 
+      - name: Update GitHub Token in SSM (before deployment)
+        env:
+          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+        run: |
+          if [ -n "$PLATFORM_GITHUB_TOKEN" ]; then
+            echo "🔐 Updating GitHub token in SSM Parameter Store..."
+            aws ssm put-parameter \
+              --name "/muppet-platform/github-token" \
+              --value "$PLATFORM_GITHUB_TOKEN" \
+              --type "SecureString" \
+              --overwrite
+            echo "✅ GitHub token updated successfully"
+          else
+            echo "⚠️  No GitHub token provided, using placeholder value"
+            echo "   Platform will start in degraded mode without GitHub integration"
+            # Ensure the parameter exists with placeholder value
+            aws ssm put-parameter \
+              --name "/muppet-platform/github-token" \
+              --value "placeholder-token-update-manually" \
+              --type "SecureString" \
+              --overwrite || true
+          fi
+
       - name: Deploy platform infrastructure
         working-directory: platform/terraform
         env:
@@ -135,46 +158,106 @@ jobs:
             --service $SERVICE_NAME \
             --force-new-deployment
           
-          echo "⏳ Waiting for service to stabilize (max 5 minutes)..."
+          echo "⏳ Monitoring deployment progress (max 3 minutes)..."
           
-          # Wait with shorter timeout and better error handling
-          timeout 300 aws ecs wait services-stable \
-            --cluster $CLUSTER_NAME \
-            --services $SERVICE_NAME || {
+          # Monitor deployment with custom logic instead of aws ecs wait
+          for i in {1..12}; do
+            echo "📊 Check $i/12: Checking service status..."
             
-            echo "❌ Service did not stabilize within 5 minutes. Checking service status..."
-            
-            # Get service events to diagnose issues
-            aws ecs describe-services \
+            # Get current service status
+            SERVICE_INFO=$(aws ecs describe-services \
               --cluster $CLUSTER_NAME \
               --services $SERVICE_NAME \
-              --query 'services[0].events[0:3].{Time:createdAt,Message:message}' \
-              --output table
+              --query 'services[0].{Running:runningCount,Desired:desiredCount,Pending:pendingCount,RolloutState:deployments[0].rolloutState,FailedTasks:deployments[0].failedTasks}' \
+              --output json)
             
-            # Get task definition and running tasks info
-            echo ""
-            echo "📋 Current service status:"
-            aws ecs describe-services \
-              --cluster $CLUSTER_NAME \
-              --services $SERVICE_NAME \
-              --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}' \
-              --output table
+            RUNNING_COUNT=$(echo $SERVICE_INFO | jq -r '.Running')
+            DESIRED_COUNT=$(echo $SERVICE_INFO | jq -r '.Desired')
+            PENDING_COUNT=$(echo $SERVICE_INFO | jq -r '.Pending')
+            ROLLOUT_STATE=$(echo $SERVICE_INFO | jq -r '.RolloutState')
+            FAILED_TASKS=$(echo $SERVICE_INFO | jq -r '.FailedTasks')
             
-            # Check if there are any running tasks
-            RUNNING_COUNT=$(aws ecs describe-services \
-              --cluster $CLUSTER_NAME \
-              --services $SERVICE_NAME \
-              --query 'services[0].runningCount' \
-              --output text)
+            echo "   Running: $RUNNING_COUNT/$DESIRED_COUNT, Pending: $PENDING_COUNT, State: $ROLLOUT_STATE, Failed: $FAILED_TASKS"
             
-            if [ "$RUNNING_COUNT" = "0" ]; then
-              echo "❌ No tasks are running. Deployment failed."
-              echo "💡 Check CloudWatch logs: https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups/log-group/%2Fecs%2Fmuppet-platform"
-              exit 1
-            else
-              echo "⚠️  Service is running but not stable. Continuing with deployment verification..."
+            # Success condition: desired tasks are running and rollout is complete
+            if [ "$RUNNING_COUNT" = "$DESIRED_COUNT" ] && [ "$RUNNING_COUNT" != "0" ] && [ "$ROLLOUT_STATE" = "COMPLETED" ]; then
+              echo "✅ Deployment successful! All tasks are running and rollout completed."
+              break
             fi
-          }
+            
+            # Check for stuck deployments
+            if [ "$ROLLOUT_STATE" = "FAILED" ]; then
+              echo "❌ Deployment failed: Rollout state is FAILED"
+              echo "🔍 Recent service events:"
+              aws ecs describe-services \
+                --cluster $CLUSTER_NAME \
+                --services $SERVICE_NAME \
+                --query 'services[0].events[0:5].{Time:createdAt,Message:message}' \
+                --output table
+              exit 1
+            fi
+            
+            # Check for too many failed tasks
+            if [ "$FAILED_TASKS" != "null" ] && [ "$FAILED_TASKS" -gt 3 ]; then
+              echo "❌ Deployment failed: Too many failed tasks ($FAILED_TASKS)"
+              echo "🔍 Getting task failure details..."
+              
+              # Get failed task details
+              TASK_ARNS=$(aws ecs list-tasks \
+                --cluster $CLUSTER_NAME \
+                --service-name $SERVICE_NAME \
+                --desired-status STOPPED \
+                --query 'taskArns[0:3]' \
+                --output text)
+              
+              if [ -n "$TASK_ARNS" ] && [ "$TASK_ARNS" != "None" ]; then
+                echo "🔍 Failed task details:"
+                aws ecs describe-tasks \
+                  --cluster $CLUSTER_NAME \
+                  --tasks $TASK_ARNS \
+                  --query 'tasks[0].{StoppedReason:stoppedReason,StoppedAt:stoppedAt,LastStatus:lastStatus}' \
+                  --output table
+              fi
+              
+              exit 1
+            fi
+            
+            # Timeout condition
+            if [ $i -eq 12 ]; then
+              echo "⏰ Deployment timeout after 3 minutes"
+              echo "📋 Final service status:"
+              echo $SERVICE_INFO | jq .
+              
+              echo ""
+              echo "🔗 Troubleshooting links:"
+              echo "   ECS Service: https://us-west-2.console.aws.amazon.com/ecs/home?region=us-west-2#/clusters/muppet-platform-cluster/services/muppet-platform/details"
+              echo "   CloudWatch Logs: https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups/log-group/%2Fecs%2Fmuppet-platform"
+              
+              # Get recent task failures for debugging
+              echo ""
+              echo "🔍 Recent task failures:"
+              FAILED_TASK_ARNS=$(aws ecs list-tasks \
+                --cluster $CLUSTER_NAME \
+                --service-name $SERVICE_NAME \
+                --desired-status STOPPED \
+                --query 'taskArns[0:2]' \
+                --output text)
+              
+              if [ -n "$FAILED_TASK_ARNS" ] && [ "$FAILED_TASK_ARNS" != "None" ]; then
+                aws ecs describe-tasks \
+                  --cluster $CLUSTER_NAME \
+                  --tasks $FAILED_TASK_ARNS \
+                  --query 'tasks[].{TaskArn:taskArn,StoppedReason:stoppedReason,LastStatus:lastStatus,StoppedAt:stoppedAt}' \
+                  --output table
+              fi
+              
+              # Don't exit with error - let verification step handle it
+              echo "⚠️  Continuing to verification step..."
+              break
+            fi
+            
+            sleep 15
+          done
 
       - name: Verify deployment
         run: |
@@ -224,18 +307,6 @@ jobs:
               sleep 15
             fi
           done
-
-      - name: Update GitHub Token in SSM (if provided)
-        if: env.PLATFORM_GITHUB_TOKEN != ''
-        env:
-          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
-        run: |
-          echo "🔐 Updating GitHub token in SSM Parameter Store..."
-          aws ssm put-parameter \
-            --name "/muppet-platform/github-token" \
-            --value "$PLATFORM_GITHUB_TOKEN" \
-            --type "SecureString" \
-            --overwrite
 
       - name: Deployment complete
         run: |

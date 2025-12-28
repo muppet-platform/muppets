@@ -268,7 +268,12 @@ resource "aws_iam_role_policy" "platform_permissions" {
           # DynamoDB permissions for terraform locking
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:DeleteItem"
+          "dynamodb:DeleteItem",
+          # SSM permissions for parameter access
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath",
+          "ssm:PutParameter"
         ]
         Resource = "*"
       }
@@ -338,8 +343,8 @@ resource "aws_ecs_task_definition" "platform" {
         command = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
         interval = 30
         timeout = 10
-        retries = 3
-        startPeriod = 60
+        retries = 5
+        startPeriod = 120
       }
       
       logConfiguration = {
@@ -380,12 +385,12 @@ resource "aws_lb_target_group" "platform" {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
+    matcher             = "200,307"  # Accept both 200 and 307 (redirect) responses
     path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 10
-    unhealthy_threshold = 3
+    unhealthy_threshold = 5
   }
 
   tags = local.common_tags

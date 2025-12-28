@@ -48,7 +48,7 @@ class PlatformHealthResponse(BaseModel):
 
 
 @router.get(
-    "/",
+    "/health",
     response_model=HealthResponse,
     status_code=status.HTTP_200_OK,
     summary="Health check",
@@ -59,6 +59,8 @@ async def health_check() -> HealthResponse:
     Basic health check endpoint.
 
     Returns basic service information to indicate the service is running.
+    This endpoint should always return 200 OK if the service is running,
+    regardless of external dependencies.
     """
     settings = get_settings()
 
@@ -71,7 +73,7 @@ async def health_check() -> HealthResponse:
 
 
 @router.get(
-    "/ready",
+    "/health/ready",
     response_model=ReadinessResponse,
     status_code=status.HTTP_200_OK,
     summary="Readiness check",
@@ -106,7 +108,7 @@ async def readiness_check() -> ReadinessResponse:
 
 
 @router.get(
-    "/platform",
+    "/health/platform",
     response_model=PlatformHealthResponse,
     status_code=status.HTTP_200_OK,
     summary="Platform health check",

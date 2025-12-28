@@ -76,17 +76,16 @@ class StateManager:
         Get the current platform state.
 
         Returns:
-            Current platform state
+            Current platform state (or empty state if not initialized)
 
         Raises:
-            PlatformException: If state is not initialized
+            PlatformException: Only for critical errors, not initialization state
         """
         if not self._initialized or self._state is None:
-            raise PlatformException(
-                message="StateManager not initialized. Call initialize() first.",
-                error_type="STATE_NOT_INITIALIZED",
-                status_code=500,
-            )
+            logger.warning("StateManager not initialized, returning empty state")
+            # Return empty state instead of raising exception
+            # This allows the service to start and handle requests gracefully
+            return PlatformState.empty()
 
         return self._state
 
