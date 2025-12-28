@@ -1,0 +1,99 @@
+# Variables for Muppet Platform Infrastructure
+
+variable "environment" {
+  description = "Environment name (staging, production)"
+  type        = string
+  default     = "staging"
+  
+  validation {
+    condition     = contains(["staging", "production"], var.environment)
+    error_message = "Environment must be either 'staging' or 'production'."
+  }
+}
+
+variable "aws_region" {
+  description = "AWS region for deployment"
+  type        = string
+  default     = "us-west-2"
+}
+
+variable "image_tag" {
+  description = "Docker image tag to deploy"
+  type        = string
+  default     = "latest"
+}
+
+# ECS Configuration
+variable "cpu" {
+  description = "CPU units for the platform service (1024 = 1 vCPU)"
+  type        = number
+  default     = 1024
+}
+
+variable "memory" {
+  description = "Memory in MB for the platform service"
+  type        = number
+  default     = 2048
+}
+
+variable "min_capacity" {
+  description = "Minimum number of platform service instances"
+  type        = number
+  default     = 1
+}
+
+variable "max_capacity" {
+  description = "Maximum number of platform service instances"
+  type        = number
+  default     = 5
+}
+
+variable "target_cpu_utilization" {
+  description = "Target CPU utilization percentage for auto scaling"
+  type        = number
+  default     = 70
+}
+
+variable "target_memory_utilization" {
+  description = "Target memory utilization percentage for auto scaling"
+  type        = number
+  default     = 80
+}
+
+# Logging Configuration
+variable "log_retention_days" {
+  description = "CloudWatch log retention in days"
+  type        = number
+  default     = 7
+}
+
+variable "log_level" {
+  description = "Application log level"
+  type        = string
+  default     = "INFO"
+  
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR"], var.log_level)
+    error_message = "Log level must be one of: DEBUG, INFO, WARNING, ERROR."
+  }
+}
+
+# GitHub Configuration
+variable "github_organization" {
+  description = "GitHub organization name"
+  type        = string
+  default     = "muppet-platform"
+}
+
+# Cost and Ownership
+variable "cost_center" {
+  description = "Cost center for billing"
+  type        = string
+  default     = "platform-engineering"
+}
+
+variable "owner_email" {
+  description = "Owner email for resource tagging"
+  type        = string
+  default     = "platform-team@company.com"
+}

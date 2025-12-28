@@ -20,13 +20,13 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/platform
+  AWS_REGION: us-west-2
+  ECR_REPOSITORY: muppet-platform
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'staging' }}
     # Only run if CI succeeded (for workflow_run) or if manually triggered
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
@@ -38,98 +38,169 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download platform artifacts
-        if: github.event_name == 'workflow_run'
-        uses: actions/download-artifact@v4
-        with:
-          name: platform-artifacts
-          path: platform/
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
-
-      - name: Set up Python (manual deployment only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install uv (manual deployment only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Install dependencies (manual deployment only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Install dependencies
         run: |
           cd platform
           uv sync --dev
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} || \
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }} --image-scanning-configuration scanOnPush=true
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=sha,prefix={{branch}}-
-            
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        run: |
+          IMAGE_TAG=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          docker buildx build \
+            --platform linux/arm64 \
+            --push \
+            -t $IMAGE_TAG \
+            -f platform/docker/Dockerfile \
+            platform/
+          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
         with:
-          context: ./platform
-          file: ./platform/docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          
-      - name: Create Release (for tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/create-release@v1
+          tofu_version: 1.6.0
+
+      - name: Deploy platform infrastructure
+        working-directory: platform/terraform
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: |
-            ## Muppet Platform ${{ github.ref_name }}
-            
-            ### What's Included
-            - ✅ Platform service: `${{ steps.meta.outputs.tags }}`
-            - ✅ Java 21 LTS Micronaut templates
-            - ✅ Simplified terraform configuration
-            - ✅ ARM64 optimized containers
-            - ✅ Optimized CI/CD workflows
-            
-            ### Quick Start
-            ```bash
-            docker pull ${{ steps.meta.outputs.tags }}
-            ```
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          TF_VAR_environment: ${{ github.event.inputs.environment || 'staging' }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_LOG: INFO
+        run: |
+          echo "🔍 Starting OpenTofu deployment for Muppet Platform..."
+          
+          # Initialize with S3 backend
+          echo "📦 Initializing OpenTofu..."
+          tofu init -input=false
+          
+          # Plan the deployment
+          echo "📋 Planning platform deployment..."
+          tofu plan -input=false -out=tfplan -detailed-exitcode
+          
+          # Apply the changes
+          echo "🚀 Applying platform infrastructure changes..."
+          tofu apply -input=false -auto-approve tfplan
+          
+          echo "✅ Platform infrastructure deployment completed"
+          
+          # Output key information for developers
+          echo ""
+          echo "📋 Platform Deployment Outputs:"
+          tofu output -json | jq -r '
+            "Platform URL: " + .platform_url.value,
+            "Health Check: " + .platform_health_url.value,
+            "Load Balancer: " + .load_balancer_dns.value,
+            "ECS Cluster: " + .ecs_cluster_name.value,
+            "ECS Service: " + .ecs_service_name.value
+          '
+
+      - name: Update ECS service
+        run: |
+          CLUSTER_NAME="muppet-platform-cluster"
+          SERVICE_NAME="muppet-platform"
+          
+          echo "🔄 Updating ECS service with new image..."
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --force-new-deployment
+          
+          echo "⏳ Waiting for service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $CLUSTER_NAME \
+            --services $SERVICE_NAME \
+            --cli-read-timeout 900 \
+            --cli-connect-timeout 60
+
+      - name: Verify deployment
+        run: |
+          # Get the load balancer DNS name
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names muppet-platform-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
+          
+          echo "🔍 Verifying platform deployment..."
+          
+          # Wait for ALB to be ready and test health endpoint
+          for i in {1..30}; do
+            if curl -f -s "http://${ALB_DNS}/health" > /dev/null; then
+              echo "✅ Platform health check successful"
+              break
+            else
+              echo "⏳ Waiting for platform to be ready... (attempt $i/30)"
+              sleep 10
+            fi
+          done
+          
+          # Test the health endpoint and show response
+          echo ""
+          echo "🏥 Platform Health Check:"
+          curl -s "http://${ALB_DNS}/health" | jq . || echo "Health check returned non-JSON response"
+
+      - name: Update GitHub Token in SSM (if provided)
+        if: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+        run: |
+          echo "🔐 Updating GitHub token in SSM Parameter Store..."
+          aws ssm put-parameter \
+            --name "/muppet-platform/github-token" \
+            --value "${{ secrets.PLATFORM_GITHUB_TOKEN }}" \
+            --type "SecureString" \
+            --overwrite
 
       - name: Deployment complete
         run: |
-          echo "✅ Deployment successful"
+          # Get the load balancer DNS name
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names muppet-platform-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
+          
+          echo "✅ Muppet Platform deployment successful!"
           echo "🚀 Platform deployed with image: ${{ steps.build.outputs.image-tag }}"
+          echo ""
+          echo "🌐 Platform is available at:"
+          echo "   Platform API: http://${ALB_DNS}"
+          echo "   Health Check: http://${ALB_DNS}/health"
+          echo "   API Docs: http://${ALB_DNS}/docs"
           echo ""
           echo "📋 Deployment Details:"
           echo "   Environment: ${{ github.event.inputs.environment || 'staging' }}"
-          echo "   Registry: ${{ env.REGISTRY }}"
-          echo "   Image: ${{ env.IMAGE_NAME }}"
-          echo "   Tags: ${{ steps.meta.outputs.tags }}"
+          echo "   Region: ${{ env.AWS_REGION }}"
+          echo "   Cluster: muppet-platform-cluster"
+          echo "   Service: muppet-platform"
+          echo "   Image: ${{ steps.build.outputs.image-tag }}"
+          echo ""
+          echo "📊 Monitoring:"
+          echo "   CloudWatch Logs: https://${{ env.AWS_REGION }}.console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#logsV2:log-groups/log-group/%2Fecs%2Fmuppet-platform"
+          echo "   ECS Service: https://${{ env.AWS_REGION }}.console.aws.amazon.com/ecs/home?region=${{ env.AWS_REGION }}#/clusters/muppet-platform-cluster/services/muppet-platform/details"
