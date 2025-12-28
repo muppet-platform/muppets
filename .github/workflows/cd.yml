@@ -51,11 +51,6 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Install dependencies
-        run: |
-          cd platform
-          uv sync --dev
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -79,10 +74,22 @@ jobs:
         run: |
           echo "=== Build context contents ==="
           ls -la
+          echo "=== Platform directory ==="
+          ls -la platform/ || echo "platform/ not found"
+          echo "=== Platform uv.lock ==="
+          ls -la platform/uv.lock || echo "platform/uv.lock not found"
           echo "=== Templates directory ==="
           ls -la templates/ || echo "templates/ not found"
           echo "=== Terraform modules directory ==="
           ls -la terraform-modules/ || echo "terraform-modules/ not found"
+          echo "=== Git status ==="
+          git status --porcelain
+          echo "=== Git tracked files (relevant) ==="
+          git ls-files | grep -E "(uv\.lock|terraform-modules|templates)" | head -10
+          echo "=== Working directory ==="
+          pwd
+          echo "=== File permissions ==="
+          ls -la platform/uv.lock terraform-modules/ 2>/dev/null || echo "Files not accessible"
         
       - name: Build and push Docker image
         id: build
@@ -95,6 +102,11 @@ jobs:
             -f platform/docker/Dockerfile \
             .
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: |
+          cd platform
+          uv sync --dev
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v1

@@ -19,8 +19,11 @@ ENV PATH="/root/.local/bin:$PATH"
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash platform
 
-# Copy UV configuration files and README (needed for build)
-COPY platform/pyproject.toml platform/uv.lock platform/README.md ./
+# Copy UV configuration files first
+COPY platform/pyproject.toml platform/README.md ./
+
+# Copy uv.lock if it exists, otherwise uv sync will handle it
+COPY platform/uv.lock ./uv.lock
 
 # Install dependencies using UV
 RUN uv sync --frozen --no-dev
@@ -28,10 +31,9 @@ RUN uv sync --frozen --no-dev
 # Copy source code
 COPY platform/src/ ./src/
 
-# Copy templates directory (needed for template discovery)
+# Copy templates and terraform-modules directories
+# These are required for runtime functionality
 COPY templates/ /templates/
-
-# Copy terraform modules directory (needed for infrastructure generation)
 COPY terraform-modules/ /terraform-modules/
 
 # Create logs directory and set permissions
