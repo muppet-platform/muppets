@@ -1,0 +1,119 @@
+# Simplified outputs for {{muppet_name}}
+# Provides essential information for developers and CI/CD
+
+# Application URLs
+output "application_url" {
+  description = "HTTP URL to access the application"
+  value       = "http://${aws_lb.main.dns_name}"
+}
+
+output "health_check_url" {
+  description = "Health check endpoint URL"
+  value       = "http://${aws_lb.main.dns_name}/health"
+}
+
+output "load_balancer_dns" {
+  description = "Load balancer DNS name (for easy copy/paste)"
+  value       = aws_lb.main.dns_name
+}
+
+# Service Information
+output "service_name" {
+  description = "Name of the ECS service"
+  value       = aws_ecs_service.app.name
+}
+
+output "cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = aws_ecs_cluster.main.name
+}
+
+# Load Balancer Information
+output "load_balancer_arn" {
+  description = "ARN of the load balancer"
+  value       = aws_lb.main.arn
+}
+
+output "load_balancer_zone_id" {
+  description = "Zone ID of the load balancer"
+  value       = aws_lb.main.zone_id
+}
+
+# Networking Information
+output "vpc_id" {
+  description = "VPC ID"
+  value       = data.aws_vpc.default.id
+}
+
+output "vpc_cidr" {
+  description = "VPC CIDR block"
+  value       = data.aws_vpc.default.cidr_block
+}
+
+output "subnets" {
+  description = "Subnet IDs"
+  value       = data.aws_subnets.default.ids
+}
+
+# Container Registry Information
+output "ecr_repository_url" {
+  description = "ECR repository URL"
+  value       = data.aws_ecr_repository.main.repository_url
+}
+
+output "ecr_repository_arn" {
+  description = "ECR repository ARN"
+  value       = data.aws_ecr_repository.main.arn
+}
+
+# Monitoring Information
+output "log_group_name" {
+  description = "CloudWatch log group name"
+  value       = aws_cloudwatch_log_group.app.name
+}
+
+output "log_group_arn" {
+  description = "CloudWatch log group ARN"
+  value       = aws_cloudwatch_log_group.app.arn
+}
+
+# Security Information
+output "execution_role_arn" {
+  description = "ECS execution role ARN"
+  value       = aws_iam_role.execution.arn
+}
+
+output "task_role_arn" {
+  description = "ECS task role ARN"
+  value       = aws_iam_role.task.arn
+}
+
+# Deployment Information for CI/CD
+output "deployment_info" {
+  description = "Deployment information for CI/CD pipelines"
+  value = {
+    service_name = aws_ecs_service.app.name
+    cluster_name = aws_ecs_cluster.main.name
+    container_name = var.muppet_name
+    container_port = 3000
+    load_balancer_dns = aws_lb.main.dns_name
+    health_check_path = "/health"
+    environment = var.environment
+  }
+}
+
+# Auto-scaling Information
+output "autoscaling_target_arn" {
+  description = "Auto-scaling target ARN"
+  value       = aws_appautoscaling_target.ecs_target.arn
+}
+
+output "autoscaling_policy_cpu_arn" {
+  description = "CPU auto-scaling policy ARN"
+  value       = aws_appautoscaling_policy.ecs_policy_cpu.arn
+}
+
+output "autoscaling_policy_memory_arn" {
+  description = "Memory auto-scaling policy ARN"
+  value       = aws_appautoscaling_policy.ecs_policy_memory.arn
+}

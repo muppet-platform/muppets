@@ -1,0 +1,12 @@
+# S3 backend configuration for shared state management
+# Enables state sharing between local development and CI/CD
+
+terraform {
+  backend "s3" {
+    bucket         = "muppet-platform-terraform-state"
+    key            = "muppets/{{muppet_name}}/terraform.tfstate"
+    region         = "us-west-2"
+    dynamodb_table = "muppet-platform-terraform-locks"
+    encrypt        = true
+  }
+}

@@ -89,7 +89,7 @@ jobs:
         run: |
           echo "🔍 Starting OpenTofu deployment with verbose logging..."
           
-          # Initialize with local state for now (in production, use S3 backend)
+          # Initialize with S3 backend for shared state management
           echo "📦 Initializing OpenTofu..."
           tofu init -input=false
           
@@ -102,11 +102,20 @@ jobs:
           tofu apply -input=false -auto-approve tfplan
           
           echo "✅ OpenTofu deployment completed"
+          
+          # Output key information for developers
+          echo ""
+          echo "📋 Terraform Outputs:"
+          tofu output -json | jq -r '
+            "Application URL: " + .application_url.value,
+            "Health Check: " + .health_check_url.value,
+            "Load Balancer: " + .load_balancer_dns.value
+          '
 
       - name: Update ECS service
         run: |
           CLUSTER_NAME="${{ env.MUPPET_NAME }}-cluster"
-          SERVICE_NAME="${{ env.MUPPET_NAME }}-service"
+          SERVICE_NAME="${{ env.MUPPET_NAME }}"
           
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
@@ -119,5 +128,21 @@ jobs:
 
       - name: Deployment complete
         run: |
+          # Get the load balancer DNS name
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names ${{ env.MUPPET_NAME }}-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
+          
           echo "✅ Deployment successful"
           echo "🚀 Application deployed with image: ${{ steps.build.outputs.image-tag }}"
+          echo ""
+          echo "🌐 Your service is available at:"
+          echo "   http://${ALB_DNS}"
+          echo "   http://${ALB_DNS}/health"
+          echo ""
+          echo "📋 Service Details:"
+          echo "   Environment: ${{ github.event.inputs.environment || 'development' }}"
+          echo "   Region: ${{ env.AWS_REGION }}"
+          echo "   Cluster: ${{ env.MUPPET_NAME }}-cluster"
+          echo "   Service: ${{ env.MUPPET_NAME }}"
