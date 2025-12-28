@@ -111,8 +111,11 @@ jobs:
         run: |
           IMAGE_TAG=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           
+          # Ensure we're in the root directory for Docker build context
+          cd $GITHUB_WORKSPACE
+          
           # First build locally to verify context works
-          echo "🔍 Testing local Docker build..."
+          echo "🔍 Testing local Docker build from $(pwd)..."
           docker build \
             --platform linux/arm64 \
             -t $IMAGE_TAG \
