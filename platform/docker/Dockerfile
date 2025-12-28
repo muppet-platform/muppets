@@ -28,6 +28,12 @@ RUN uv sync --frozen --no-dev
 # Copy source code
 COPY src/ ./src/
 
+# Copy templates directory (needed for template discovery)
+COPY ../templates/ /templates/
+
+# Copy terraform modules directory (needed for infrastructure generation)
+COPY ../terraform-modules/ /terraform-modules/
+
 # Create logs directory and set permissions
 RUN mkdir -p logs && chown -R platform:platform /app
 
