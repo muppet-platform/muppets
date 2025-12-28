@@ -169,12 +169,14 @@ jobs:
           curl -s "http://${ALB_DNS}/health" | jq . || echo "Health check returned non-JSON response"
 
       - name: Update GitHub Token in SSM (if provided)
-        if: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+        if: env.PLATFORM_GITHUB_TOKEN != ''
+        env:
+          PLATFORM_GITHUB_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
         run: |
           echo "🔐 Updating GitHub token in SSM Parameter Store..."
           aws ssm put-parameter \
             --name "/muppet-platform/github-token" \
-            --value "${{ secrets.PLATFORM_GITHUB_TOKEN }}" \
+            --value "$PLATFORM_GITHUB_TOKEN" \
             --type "SecureString" \
             --overwrite
 
