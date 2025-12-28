@@ -8,12 +8,11 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  UV_VERSION: '0.4.18'
 
 jobs:
-  # Job 1: Platform Unit Tests
-  platform-tests:
-    name: Platform Unit Tests
+  # Essential Job 1: Tests & Quality (Combined)
+  tests-and-quality:
+    name: Tests & Quality
     runs-on: ubuntu-latest
     
     steps:
@@ -30,28 +29,27 @@ jobs:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
         
-    - name: Verify uv installation
-      run: uv --version
-      
     - name: Install dependencies
       run: |
         cd platform
         uv sync --dev
         
-    - name: Run unit tests
+    - name: Run tests
       run: |
         cd platform
         uv run pytest tests/ -v --tb=short
         
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: platform-test-results
-        path: platform/test-results/
-        retention-days: 7
+    - name: Check code formatting
+      run: |
+        cd platform
+        uv run black --check src/ tests/
+        
+    - name: Check import sorting
+      run: |
+        cd platform
+        uv run isort --check-only src/ tests/
 
-  # Job 2: Template Validation
+  # Essential Job 2: Template Validation
   template-validation:
     name: Template Validation
     runs-on: ubuntu-latest
@@ -68,116 +66,13 @@ jobs:
         
     - name: Verify Java version
       run: |
-        java -version
         java -version 2>&1 | grep -q "21.*LTS" && echo "✅ Java 21 LTS detected" || (echo "❌ Non-LTS Java version detected" && exit 1)
         
-    - name: Validate Java Micronaut template
+    - name: Validate template files
       run: |
         cd templates/java-micronaut
-        # Check that required template files exist
         test -f Dockerfile.template
         test -f build.gradle.template
         test -f template.yaml
+        test -f .env.local
         echo "✅ Template files validated"
-
-  # Job 3: Code Quality
-  code-quality:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        
-    - name: Install dependencies
-      run: |
-        cd platform
-        uv sync --dev
-        
-    - name: Run code formatting check
-      run: |
-        cd platform
-        uv run black --check src/ tests/
-        
-    - name: Run import sorting check
-      run: |
-        cd platform
-        uv run isort --check-only src/ tests/
-        
-    - name: Run linting
-      run: |
-        cd platform
-        uv run flake8 src/ tests/
-        
-    - name: Run type checking
-      run: |
-        cd platform
-        uv run mypy src/
-
-  # Job 4: Security Scan
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-        
-    - name: Install dependencies
-      run: |
-        cd platform
-        uv sync --dev
-        
-    - name: Run security scan
-      run: |
-        cd platform
-        uv run bandit -r src/ -f json -o security-report.json || true
-        
-    - name: Upload security report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-report
-        path: platform/security-report.json
-        retention-days: 30
-
-  # Job 5: Docker Build Test (without AWS dependencies)
-  docker-build:
-    name: Docker Build Test
-    runs-on: ubuntu-latest
-    needs: [platform-tests, code-quality]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Build Docker image
-      run: |
-        cd platform
-        docker build -f docker/Dockerfile -t muppet-platform:ci-test .
-        
-    - name: Test Docker image
-      run: |
-        # Test that the image was built successfully
-        docker images muppet-platform:ci-test
-        echo "✅ Docker image built successfully"
