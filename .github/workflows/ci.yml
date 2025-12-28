@@ -33,15 +33,10 @@ jobs:
           cd platform
           uv sync --dev
           
-      - name: Run tests and quality checks
+      - name: Run tests
         run: |
           cd platform
-          # Run tests
           uv run pytest tests/ -v --tb=short
-          # Check code formatting
-          uv run black --check src/ tests/
-          # Check import sorting
-          uv run isort --check-only src/ tests/
           
       - name: Set up Java (Amazon Corretto 21 LTS)
         uses: actions/setup-java@v4

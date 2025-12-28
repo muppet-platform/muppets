@@ -33,11 +33,15 @@ class TestS3BackendIntegration:
     def test_backend_tf_template_exists(self, terraform_template_dir):
         """Test that main.tf template exists with integrated backend configuration."""
         main_template = terraform_template_dir / "main.tf.template"
-        assert main_template.exists(), "Main terraform template with integrated backend should exist"
-        
+        assert (
+            main_template.exists()
+        ), "Main terraform template with integrated backend should exist"
+
         # Verify backend configuration is integrated into main.tf
         content = main_template.read_text()
-        assert 'backend "s3"' in content, "Backend configuration should be integrated into main.tf"
+        assert (
+            'backend "s3"' in content
+        ), "Backend configuration should be integrated into main.tf"
 
     def test_s3_backend_configuration(self, backend_tf_template):
         """Test S3 backend configuration generation."""
@@ -143,9 +147,7 @@ class TestS3BackendIntegration:
         content = backend_tf_template
 
         # Should include explanatory comments (matching actual content)
-        assert (
-            "# State locking" in content
-        ), "Should include state locking explanation"
+        assert "# State locking" in content, "Should include state locking explanation"
         assert (
             "# Simplified infrastructure for {{muppet_name}}" in content
         ), "Should include infrastructure explanation"
