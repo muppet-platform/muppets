@@ -195,15 +195,21 @@ public void processItem(Item item) {
 
 ### AWS Deployment
 Deployment is handled automatically through GitHub Actions:
-- Push to `develop` → deploys to staging
+- Push to `develop` → deploys to staging  
 - Push to `main` → deploys to production
 
-Manual deployment:
-```bash
-cd terraform
-terraform plan -var="muppet_name={{muppet_name}}" -var="environment=production"
-terraform apply -var="muppet_name={{muppet_name}}" -var="environment=production"
-```
+**CI/CD-Only Deployment Policy:**
+All production deployments MUST go through GitHub Actions workflows. Manual deployments are not supported for security and consistency reasons.
+
+**Triggering Deployments:**
+- **Automatic**: Push to main branch triggers production deployment
+- **Manual**: Use GitHub Actions → CD → Run workflow
+- **Environment Selection**: Choose development/staging/production in workflow
+
+**Monitoring Deployments:**
+- Check GitHub Actions logs for deployment status
+- Application URL provided in workflow output
+- Health check available at `/health` endpoint
 
 ## Troubleshooting
 

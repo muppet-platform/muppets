@@ -4,7 +4,7 @@ variable "environment" {
   description = "Environment name (staging, production)"
   type        = string
   default     = "staging"
-  
+
   validation {
     condition     = contains(["staging", "production"], var.environment)
     error_message = "Environment must be either 'staging' or 'production'."
@@ -71,7 +71,7 @@ variable "log_level" {
   description = "Application log level"
   type        = string
   default     = "INFO"
-  
+
   validation {
     condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR"], var.log_level)
     error_message = "Log level must be one of: DEBUG, INFO, WARNING, ERROR."
@@ -83,6 +83,30 @@ variable "github_organization" {
   description = "GitHub organization name"
   type        = string
   default     = "muppet-platform"
+}
+
+# HTTPS Configuration
+variable "enable_https" {
+  description = "Enable HTTPS with ACM certificate"
+  type        = bool
+  default     = true
+}
+
+variable "domain_name" {
+  description = "Platform domain name"
+  type        = string
+  default     = "muppet-platform.s3u.dev"
+}
+
+variable "parent_zone_id" {
+  description = "Route 53 hosted zone ID for s3u.dev (required when enable_https is true)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.enable_https == false || (var.enable_https == true && var.parent_zone_id != "")
+    error_message = "parent_zone_id is required when enable_https is true."
+  }
 }
 
 # Cost and Ownership

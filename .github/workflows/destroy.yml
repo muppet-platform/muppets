@@ -1,0 +1,48 @@
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm'
+        required: true
+        type: string
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_destroy == 'DESTROY'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+          
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.6.0
+          
+      - name: Destroy infrastructure
+        working-directory: platform/terraform
+        run: |
+          tofu init
+          tofu destroy -auto-approve
+          
+      - name: Clean up ECR images (optional)
+        run: |
+          echo "🗑️ Cleaning up ECR images..."
+          aws ecr list-images \
+            --repository-name muppet-platform \
+            --query 'imageIds[*]' \
+            --output json | \
+          jq '.[] | select(.imageTag != "latest")' | \
+          aws ecr batch-delete-image \
+            --repository-name muppet-platform \
+            --image-ids file:///dev/stdin || echo "No images to delete"

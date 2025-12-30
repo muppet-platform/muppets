@@ -4,21 +4,25 @@
 
 terraform {
   required_version = ">= 1.5"
-  
+
   backend "s3" {
     bucket = "muppet-platform-terraform-state"
     key    = "platform/terraform.tfstate"
     region = "us-west-2"
-    
+
     # State locking
     dynamodb_table = "muppet-platform-terraform-locks"
     encrypt        = true
   }
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
     }
   }
 }
@@ -26,7 +30,7 @@ terraform {
 # Configure AWS Provider
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = local.common_tags
   }
@@ -289,8 +293,8 @@ resource "aws_ecs_task_definition" "platform" {
   cpu                      = var.cpu
   memory                   = var.memory
   execution_role_arn       = aws_iam_role.execution.arn
-  task_role_arn           = aws_iam_role.task.arn
-  
+  task_role_arn            = aws_iam_role.task.arn
+
   # Use ARM64 architecture for better cost/performance
   runtime_platform {
     operating_system_family = "LINUX"
@@ -301,14 +305,14 @@ resource "aws_ecs_task_definition" "platform" {
     {
       name  = "muppet-platform"
       image = "${data.aws_ecr_repository.platform.repository_url}:${var.image_tag}"
-      
+
       portMappings = [
         {
           containerPort = 8000
           protocol      = "tcp"
         }
       ]
-      
+
       environment = [
         {
           name  = "ENVIRONMENT"
@@ -331,22 +335,22 @@ resource "aws_ecs_task_definition" "platform" {
           value = var.github_organization
         }
       ]
-      
+
       secrets = [
         {
           name      = "GITHUB_TOKEN"
           valueFrom = aws_ssm_parameter.github_token.arn
         }
       ]
-      
+
       healthCheck = {
-        command = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-        interval = 30
-        timeout = 10
-        retries = 5
+        command     = ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+        interval    = 30
+        timeout     = 10
+        retries     = 5
         startPeriod = 120
       }
-      
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -359,6 +363,67 @@ resource "aws_ecs_task_definition" "platform" {
   ])
 
   tags = local.common_tags
+}
+
+# ACM Certificate for HTTPS (conditional)
+resource "aws_acm_certificate" "platform" {
+  count = var.enable_https ? 1 : 0
+
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "muppet-platform-certificate"
+  })
+}
+
+# Route 53 record for certificate validation
+resource "aws_route53_record" "platform_validation" {
+  for_each = var.enable_https ? {
+    for dvo in aws_acm_certificate.platform[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.parent_zone_id
+}
+
+# Certificate validation with timeout
+resource "aws_acm_certificate_validation" "platform" {
+  count = var.enable_https ? 1 : 0
+
+  certificate_arn         = aws_acm_certificate.platform[0].arn
+  validation_record_fqdns = [for record in aws_route53_record.platform_validation : record.fqdn]
+
+  timeouts {
+    create = "10m"
+  }
+}
+
+# Route 53 A record pointing to ALB (conditional)
+resource "aws_route53_record" "platform" {
+  count = var.enable_https ? 1 : 0
+
+  zone_id = var.parent_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.platform.dns_name
+    zone_id                = aws_lb.platform.zone_id
+    evaluate_target_health = true
+  }
 }
 
 # Application Load Balancer
@@ -385,7 +450,7 @@ resource "aws_lb_target_group" "platform" {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200,307"  # Accept both 200 and 307 (redirect) responses
+    matcher             = "200" # Only accept healthy responses
     path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
@@ -396,14 +461,60 @@ resource "aws_lb_target_group" "platform" {
   tags = local.common_tags
 }
 
-resource "aws_lb_listener" "platform" {
+# HTTP Listener (when HTTPS is disabled, forward to target group)
+resource "aws_lb_listener" "platform_http" {
+  count = var.enable_https ? 0 : 1
+
   load_balancer_arn = aws_lb.platform.arn
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.platform.arn
+    type = "forward"
+    forward {
+      target_group {
+        arn = aws_lb_target_group.platform.arn
+      }
+    }
+  }
+}
+
+# HTTPS Listener (conditional)
+resource "aws_lb_listener" "platform_https" {
+  count = var.enable_https ? 1 : 0
+
+  load_balancer_arn = aws_lb.platform.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate_validation.platform[0].certificate_arn
+
+  default_action {
+    type = "forward"
+    forward {
+      target_group {
+        arn = aws_lb_target_group.platform.arn
+      }
+    }
+  }
+}
+
+# HTTP to HTTPS redirect (conditional)
+resource "aws_lb_listener" "platform_http_redirect" {
+  count = var.enable_https ? 1 : 0
+
+  load_balancer_arn = aws_lb.platform.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
@@ -427,7 +538,11 @@ resource "aws_ecs_service" "platform" {
     container_port   = 8000
   }
 
-  depends_on = [aws_lb_listener.platform]
+  depends_on = [
+    aws_lb_listener.platform_http,
+    aws_lb_listener.platform_https,
+    aws_lb_listener.platform_http_redirect
+  ]
 
   tags = local.common_tags
 }
@@ -532,15 +647,15 @@ resource "aws_cloudwatch_metric_alarm" "high_memory" {
 # Common tags and local values
 locals {
   common_tags = {
-    Service       = "muppet-platform"
-    Environment   = var.environment
-    ManagedBy     = "terraform"
-    Repository    = "muppet-platform/muppets"
-    Component     = "platform-service"
-    Language      = "python"
-    Framework     = "fastapi"
-    CostCenter    = var.cost_center
-    Owner         = var.owner_email
-    Project       = "muppet-platform"
+    Service     = "muppet-platform"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+    Repository  = "muppet-platform/muppets"
+    Component   = "platform-service"
+    Language    = "python"
+    Framework   = "fastapi"
+    CostCenter  = var.cost_center
+    Owner       = var.owner_email
+    Project     = "muppet-platform"
   }
 }

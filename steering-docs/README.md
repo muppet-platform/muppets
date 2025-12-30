@@ -19,7 +19,8 @@ steering-docs/
 │   ├── test-coverage.md       # 70% minimum coverage requirement
 │   ├── security.md            # Security best practices
 │   ├── logging.md             # Logging standards
-│   └── performance.md         # Performance guidelines
+│   ├── performance.md         # Performance guidelines
+│   └── infrastructure.md      # Infrastructure design principles (OpenTofu, etc.)
 ├── templates/                 # Template-specific steering additions
 │   ├── java-micronaut/        # Java Micronaut specific guidelines
 │   └── ...                    # Future template-specific docs
@@ -34,6 +35,7 @@ steering-docs/
 - **Security Guidelines**: Authentication, authorization, input validation, and security best practices
 - **Logging Standards**: Structured logging, log levels, and monitoring integration
 - **Performance Guidelines**: Response time targets, resource usage, and optimization practices
+- **Infrastructure Design Principles**: OpenTofu requirements, shared modules, security by default, and cost optimization
 
 ### Distribution Strategy
 

@@ -122,6 +122,7 @@ jobs:
           TF_VAR_environment: ${{ github.event.inputs.environment || 'staging' }}
           TF_VAR_image_tag: ${{ github.sha }}
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_parent_zone_id: ${{ secrets.ROUTE53_ZONE_ID }}
           TF_LOG: INFO
         run: |
           echo "🔍 Starting OpenTofu deployment for Muppet Platform..."

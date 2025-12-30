@@ -1,0 +1,28 @@
+# Example Terraform Variables Configuration
+# Copy this file to terraform.tfvars and customize as needed
+
+# Environment Configuration
+environment = "staging"
+aws_region = "us-west-2"
+
+# HTTPS Configuration
+enable_https = true
+domain_name = "muppet-platform.s3u.dev"
+parent_zone_id = "/hostedzone/Z01284891NRMNOB6Q86G3"  # s3u.dev hosted zone ID
+
+# ECS Configuration
+cpu = 1024
+memory = 2048
+min_capacity = 1
+max_capacity = 5
+
+# Logging Configuration
+log_retention_days = 7
+log_level = "INFO"
+
+# GitHub Configuration
+github_organization = "muppet-platform"
+
+# Cost and Ownership
+cost_center = "platform-engineering"
+owner_email = "platform-team@company.com"

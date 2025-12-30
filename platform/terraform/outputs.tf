@@ -2,12 +2,12 @@
 
 output "platform_url" {
   description = "URL of the deployed platform service"
-  value       = "http://${aws_lb.platform.dns_name}"
+  value       = var.enable_https ? "https://${var.domain_name}" : "http://${aws_lb.platform.dns_name}"
 }
 
 output "platform_health_url" {
   description = "Health check URL for the platform service"
-  value       = "http://${aws_lb.platform.dns_name}/health"
+  value       = var.enable_https ? "https://${var.domain_name}/health" : "http://${aws_lb.platform.dns_name}/health"
 }
 
 output "load_balancer_dns" {
@@ -59,6 +59,32 @@ output "aws_region" {
 output "image_tag" {
   description = "Deployed image tag"
   value       = var.image_tag
+}
+
+# HTTPS Configuration (conditional outputs)
+output "certificate_arn" {
+  description = "ARN of the ACM certificate (when HTTPS is enabled)"
+  value       = var.enable_https ? aws_acm_certificate.platform[0].arn : null
+}
+
+output "certificate_status" {
+  description = "Status of the ACM certificate (when HTTPS is enabled)"
+  value       = var.enable_https ? aws_acm_certificate.platform[0].status : null
+}
+
+output "domain_name" {
+  description = "Platform domain name (when HTTPS is enabled)"
+  value       = var.enable_https ? var.domain_name : null
+}
+
+output "https_url" {
+  description = "HTTPS URL of the platform (when HTTPS is enabled)"
+  value       = var.enable_https ? "https://${var.domain_name}" : null
+}
+
+output "https_health_url" {
+  description = "HTTPS health check URL (when HTTPS is enabled)"
+  value       = var.enable_https ? "https://${var.domain_name}/health" : null
 }
 
 # Monitoring URLs
