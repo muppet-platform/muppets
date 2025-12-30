@@ -658,4 +658,7 @@ locals {
     Owner       = var.owner_email
     Project     = "muppet-platform"
   }
+
+  # Validation: parent_zone_id is required when HTTPS is enabled
+  validate_https_config = var.enable_https && var.parent_zone_id == "" ? tobool("parent_zone_id is required when enable_https is true") : true
 }

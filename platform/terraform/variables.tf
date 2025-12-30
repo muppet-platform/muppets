@@ -102,11 +102,6 @@ variable "parent_zone_id" {
   description = "Route 53 hosted zone ID for s3u.dev (required when enable_https is true)"
   type        = string
   default     = ""
-
-  validation {
-    condition     = var.enable_https == false || (var.enable_https == true && var.parent_zone_id != "")
-    error_message = "parent_zone_id is required when enable_https is true."
-  }
 }
 
 # Cost and Ownership
