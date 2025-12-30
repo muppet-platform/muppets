@@ -461,19 +461,33 @@ resource "aws_lb_target_group" "platform" {
   tags = local.common_tags
 }
 
-# HTTP Listener (when HTTPS is disabled, forward to target group)
+# HTTP Listener - either forwards to target group or redirects to HTTPS
 resource "aws_lb_listener" "platform_http" {
-  count = var.enable_https ? 0 : 1
-
   load_balancer_arn = aws_lb.platform.arn
   port              = "80"
   protocol          = "HTTP"
 
+  # Conditional action based on HTTPS setting
   default_action {
-    type = "forward"
-    forward {
-      target_group {
-        arn = aws_lb_target_group.platform.arn
+    type = var.enable_https ? "redirect" : "forward"
+
+    # Forward action when HTTPS is disabled
+    dynamic "forward" {
+      for_each = var.enable_https ? [] : [1]
+      content {
+        target_group {
+          arn = aws_lb_target_group.platform.arn
+        }
+      }
+    }
+
+    # Redirect action when HTTPS is enabled
+    dynamic "redirect" {
+      for_each = var.enable_https ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
       }
     }
   }
@@ -499,24 +513,7 @@ resource "aws_lb_listener" "platform_https" {
   }
 }
 
-# HTTP to HTTPS redirect (conditional)
-resource "aws_lb_listener" "platform_http_redirect" {
-  count = var.enable_https ? 1 : 0
 
-  load_balancer_arn = aws_lb.platform.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
 
 # ECS Service
 resource "aws_ecs_service" "platform" {
@@ -540,8 +537,7 @@ resource "aws_ecs_service" "platform" {
 
   depends_on = [
     aws_lb_listener.platform_http,
-    aws_lb_listener.platform_https,
-    aws_lb_listener.platform_http_redirect
+    aws_lb_listener.platform_https
   ]
 
   tags = local.common_tags
