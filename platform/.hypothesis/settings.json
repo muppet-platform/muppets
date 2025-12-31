@@ -1,7 +1,0 @@
-{
-  "local": {
-    "max_examples": 100,
-    "deadline": 10000,
-    "suppress_health_check": ["too_slow"]
-  }
-}
