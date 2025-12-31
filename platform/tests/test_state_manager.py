@@ -127,7 +127,7 @@ async def test_get_state_after_initialization(state_manager):
 async def test_get_state_not_initialized(state_manager):
     """Test that get_state returns empty state when not initialized."""
     state = await state_manager.get_state()
-    
+
     # Should return empty state instead of raising exception
     assert isinstance(state, PlatformState)
     assert len(state.muppets) == 0

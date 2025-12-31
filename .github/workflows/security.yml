@@ -1,18 +1,19 @@
-name: Security & Dependencies
+name: Security Scans
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   schedule:
-    # Run security scans weekly
+    # Run comprehensive security scans weekly
     - cron: '0 6 * * 1'
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  dependency-check:
-    name: Dependency Security Check
+  comprehensive-security:
+    name: Comprehensive Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     
     steps:
     - name: Checkout code
@@ -33,98 +34,79 @@ jobs:
         cd platform
         uv sync --dev
         
-    - name: Run safety check
+    - name: Comprehensive dependency security check
       run: |
         cd platform
+        echo "🔒 Running comprehensive dependency security scan..."
         uv run safety check --json --output safety-report.json || true
-        
-    - name: Run bandit security linter
-      run: |
-        cd platform
         uv run bandit -r src/ -f json -o bandit-report.json || true
         
-    - name: Upload security reports
-      uses: actions/upload-artifact@v3
-      with:
-        name: security-reports
-        path: |
-          platform/safety-report.json
-          platform/bandit-report.json
-        retention-days: 30
-
-  container-security:
-    name: Container Security Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Build container image
+    - name: Build container for security scanning
       run: |
         cd platform
         docker build -t muppet-platform:security-scan -f docker/Dockerfile .
         
-    - name: Run Trivy vulnerability scanner
+    - name: Container vulnerability scan (Trivy)
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'muppet-platform:security-scan'
         format: 'sarif'
         output: 'trivy-results.sarif'
         
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      continue-on-error: true
-      with:
-        sarif_file: 'trivy-results.sarif'
-        
-    - name: Upload Trivy SARIF as artifact (fallback)
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: trivy-sarif-results
-        path: trivy-results.sarif
-        retention-days: 30
-        
-    - name: Run Grype vulnerability scanner
+    - name: Container vulnerability scan (Grype)
       uses: anchore/scan-action@v3
       with:
         image: 'muppet-platform:security-scan'
         fail-build: false
         output-format: sarif
         
-    - name: Upload Grype scan results to GitHub Security tab
+    - name: Secrets scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        extra_args: --debug --only-verified
+        
+    - name: CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: python
+        
+    - name: CodeQL Autobuild
+      uses: github/codeql-action/autobuild@v3
+      
+    - name: CodeQL Analysis Results
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:python"
+        
+    - name: Upload security scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      continue-on-error: true
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Upload Grype results
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       continue-on-error: true
       with:
         sarif_file: 'results.sarif'
         
-    - name: Upload Grype SARIF as artifact (fallback)
+    - name: Upload security reports as artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: grype-sarif-results
-        path: results.sarif
+        name: security-reports
+        path: |
+          platform/safety-report.json
+          platform/bandit-report.json
+          trivy-results.sarif
+          results.sarif
         retention-days: 30
 
-  secrets-scan:
-    name: Secrets Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run TruffleHog OSS
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        extra_args: --debug --only-verified
-
-  dependency-update:
-    name: Dependency Update Check
+  dependency-updates:
+    name: Check Dependency Updates
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule'
     
@@ -149,7 +131,6 @@ jobs:
         uv pip list --outdated > outdated-deps.txt || true
         
     - name: Create dependency update issue
-      if: github.event_name == 'schedule'
       uses: actions/github-script@v6
       with:
         script: |
@@ -171,33 +152,3 @@ jobs:
               });
             }
           }
-
-  codeql-analysis:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'python' ]
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
-        
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v3
-      
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:${{matrix.language}}"

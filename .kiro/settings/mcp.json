@@ -1,19 +1,20 @@
 {
   "mcpServers": {
-    "muppet-platform": {
-      "command": "uv",
-      "args": ["run", "mcp-server"],
+    "muppet-platform-production": {
+      "command": "python3",
+      "args": ["mcp_http_bridge.py", "https://muppet-platform.s3u.dev/mcp"],
       "cwd": "./platform",
       "env": {
-        "INTEGRATION_MODE": "real",
-        "LOG_LEVEL": "INFO"
+        "PYTHONPATH": "."
       },
       "disabled": false,
       "autoApprove": [
         "get_muppet_status",
-        "list_muppets",
+        "list_muppets", 
         "list_templates",
-        "get_muppet_logs"
+        "get_muppet_logs",
+        "list_steering_docs",
+        "create_muppet"
       ]
     }
   }

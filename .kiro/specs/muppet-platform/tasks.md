@@ -918,6 +918,104 @@ This implementation plan breaks down the Muppet Platform development into discre
     - Test namespace collision prevention
     - _Requirements: Quality assurance, regression prevention_
 
+- [ ] 25. Create Muppet Platform Kiro Power
+  - [ ] 25.1 Design Kiro Power architecture for Muppet Platform
+    - Create power structure with MCP server integration for HTTPS endpoint
+    - Design documentation structure (POWER.md) with comprehensive usage guide
+    - Plan steering files for different user personas (beginner, intermediate, advanced)
+    - Define power metadata and keywords for discoverability
+    - Create installation and configuration documentation
+    - _Requirements: Developer experience, ease of adoption, comprehensive documentation_
+
+  - [ ] 25.2 Implement MCP server configuration for Kiro Power
+    - Create HTTP-based MCP client that connects to `https://muppet-platform.s3u.dev/mcp`
+    - Implement proper authentication and error handling for production endpoint
+    - Create MCP server wrapper that translates between Kiro's stdio MCP and HTTP API
+    - Add connection health checking and automatic reconnection logic
+    - Implement proper logging and debugging for MCP communication
+    - Test MCP integration with all 11 available tools
+    - _Requirements: Reliable MCP integration, production-ready connectivity_
+
+  - [ ] 25.3 Create comprehensive POWER.md documentation
+    - Write overview of Muppet Platform capabilities and benefits
+    - Document all available MCP tools with examples and use cases
+    - Create quick start guide for creating first muppet
+    - Add troubleshooting section for common issues
+    - Include Java 21 LTS requirements and validation
+    - Document template system and customization options
+    - Add infrastructure overview and AWS requirements
+    - Create FAQ section for common developer questions
+    - _Requirements: Self-service documentation, reduced support burden_
+
+  - [ ] 25.4 Create steering files for guided workflows
+    - **getting-started.md**: Step-by-step guide for first muppet creation
+    - **java-development.md**: Java 21 LTS best practices and Micronaut patterns
+    - **deployment-guide.md**: Understanding CI/CD workflows and deployment process
+    - **troubleshooting.md**: Common issues and solutions with diagnostic commands
+    - **advanced-usage.md**: Power user features and infrastructure customization
+    - **template-development.md**: Guide for creating custom templates (future)
+    - Each steering file should include practical examples and MCP tool usage
+    - _Requirements: Guided learning, progressive skill development_
+
+  - [ ] 25.5 Implement power installation and configuration
+    - Create power package structure with proper metadata
+    - Implement automatic MCP server configuration during power installation
+    - Add environment validation (Java 21 LTS, AWS credentials, etc.)
+    - Create configuration wizard for first-time setup
+    - Implement power update mechanism for new platform features
+    - Add uninstallation cleanup procedures
+    - Test power installation across different environments (macOS, Linux, Windows)
+    - _Requirements: Seamless installation, cross-platform compatibility_
+
+  - [ ] 25.6 Create interactive examples and demos
+    - Build example muppet creation workflow with step-by-step guidance
+    - Create demo scenarios for different use cases (API service, background worker, etc.)
+    - Implement interactive tutorials within Kiro using MCP tools
+    - Add sample code snippets and configuration examples
+    - Create video walkthrough scripts for complex workflows
+    - Build troubleshooting scenarios with diagnostic tools
+    - _Requirements: Hands-on learning, practical examples_
+
+  - [ ] 25.7 Implement power testing and validation
+    - Create automated tests for MCP server connectivity and tool execution
+    - Test power installation and configuration across different environments
+    - Validate all steering files and documentation examples
+    - Test integration with different Kiro versions and configurations
+    - Create performance tests for MCP tool response times
+    - Implement health check system for power functionality
+    - Add regression testing for power updates
+    - _Requirements: Quality assurance, reliability, maintainability_
+
+  - [ ] 25.8 Create power distribution and publishing
+    - Package power for distribution through Kiro Power marketplace
+    - Create power versioning strategy aligned with platform releases
+    - Implement automatic power updates when platform is updated
+    - Create release notes and changelog for power versions
+    - Set up CI/CD pipeline for power testing and publishing
+    - Create beta testing program for power updates
+    - Document power maintenance and support procedures
+    - _Requirements: Distribution, version management, maintenance_
+
+  - [ ] 25.9 Developer onboarding and training materials
+    - Create onboarding checklist for new Muppet Platform users
+    - Build training materials for different skill levels
+    - Create video tutorials for common workflows
+    - Develop workshop materials for team training sessions
+    - Create certification program for Muppet Platform expertise
+    - Build community resources and support channels
+    - Create feedback collection system for power improvements
+    - _Requirements: User adoption, skill development, community building_
+
+  - [ ] 25.10 Power analytics and usage tracking
+    - Implement usage analytics for MCP tool usage patterns
+    - Track power adoption and user engagement metrics
+    - Create dashboards for power performance and reliability
+    - Implement feedback collection and feature request tracking
+    - Add error reporting and diagnostic information collection
+    - Create usage reports for platform improvement planning
+    - Build user satisfaction surveys and feedback loops
+    - _Requirements: Data-driven improvements, user insights, platform evolution_
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP

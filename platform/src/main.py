@@ -46,7 +46,9 @@ async def lifespan(app: FastAPI):
         await state_manager.initialize()
         logger.info("State manager initialized successfully")
     except Exception as e:
-        logger.warning(f"State manager initialization failed, continuing with degraded mode: {e}")
+        logger.warning(
+            f"State manager initialization failed, continuing with degraded mode: {e}"
+        )
         # Continue startup even if state initialization fails
         # The state manager will handle uninitialized state gracefully
         # This allows the container to start and pass health checks even without GitHub access
@@ -82,7 +84,9 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    app.include_router(health.router, tags=["health"])  # Remove prefix to avoid redirect issues
+    app.include_router(
+        health.router, tags=["health"]
+    )  # Remove prefix to avoid redirect issues
     app.include_router(muppets.router, prefix="/api/v1/muppets", tags=["muppets"])
     app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
     app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])

@@ -33,10 +33,28 @@ jobs:
           cd platform
           uv sync --dev
           
-      - name: Run tests
+      - name: Run code quality checks
         run: |
           cd platform
-          uv run pytest tests/ -v --tb=short
+          make format
+          make lint
+          make type-check
+          
+      - name: Basic security checks
+        run: |
+          cd platform
+          # Fast security checks that should block CI
+          echo "🔒 Running basic security checks..."
+          uv run bandit -r src/ -ll  # Only high/medium severity issues
+          uv run safety check --short-report  # Fail on known vulnerabilities
+          
+      - name: Run platform tests (using local development setup)
+        env:
+          CI: true  # Enable fast property tests in CI
+        run: |
+          cd platform
+          # Use the same approach as local development
+          make test
           
       - name: Set up Java (Amazon Corretto 21 LTS)
         uses: actions/setup-java@v4

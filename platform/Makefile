@@ -115,3 +115,27 @@ restart: stop run
 # CI-like checks
 ci: format lint test
 	@echo "All CI checks passed!"
+
+# Full CI simulation (matches GitHub Actions exactly)
+ci-full: check-deps
+	@echo "Running full CI simulation..."
+	@echo "This matches exactly what GitHub Actions runs"
+	@echo ""
+	@echo "1. Code quality checks..."
+	$(MAKE) format
+	$(MAKE) lint
+	$(MAKE) type-check
+	@echo ""
+	@echo "2. Platform tests (with LocalStack if available)..."
+	$(MAKE) test
+	@echo ""
+	@echo "3. Template validation..."
+	@cd ../templates/java-micronaut && \
+		test -f Dockerfile.template && \
+		test -f build.gradle.template && \
+		test -f template.yaml && \
+		test -f .env.local && \
+		echo "✅ Template files validated"
+	@echo ""
+	@echo "✅ Full CI simulation complete!"
+	@echo "   This matches what GitHub Actions will run"

@@ -1,0 +1,64 @@
+name: Nightly Tests
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  stress-tests:
+    name: Property Stress Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+    - name: Install dependencies
+      run: |
+        cd platform
+        uv sync --dev
+        
+    - name: Start LocalStack
+      run: |
+        cd platform
+        make run
+        
+    - name: Run stress property tests
+      env:
+        AWS_ENDPOINT_URL: http://localhost:4566
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        AWS_DEFAULT_REGION: us-west-2
+      run: |
+        cd platform
+        make test-stress
+        
+    - name: Upload stress test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: stress-test-examples
+        path: platform/.hypothesis/examples/
+        retention-days: 14
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        cd platform
+        make stop
