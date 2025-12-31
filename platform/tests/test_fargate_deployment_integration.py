@@ -90,12 +90,12 @@ def app(mock_state_manager, mock_deployment_service, mock_lifecycle_service):
         return mock_lifecycle_service
 
     app.dependency_overrides[get_state_manager] = override_get_state_manager
-    app.dependency_overrides[
-        muppets.get_deployment_service
-    ] = override_get_deployment_service
-    app.dependency_overrides[
-        muppets.get_lifecycle_service
-    ] = override_get_lifecycle_service
+    app.dependency_overrides[muppets.get_deployment_service] = (
+        override_get_deployment_service
+    )
+    app.dependency_overrides[muppets.get_lifecycle_service] = (
+        override_get_lifecycle_service
+    )
 
     # Global exception handlers
     @app.exception_handler(PlatformException)

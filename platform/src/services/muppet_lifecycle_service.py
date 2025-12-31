@@ -449,9 +449,11 @@ class MuppetLifecycleService:
                 if infra_state:
                     infrastructure_status = {
                         "status": infra_state.status.value,
-                        "last_operation": infra_state.last_operation.value
-                        if infra_state.last_operation
-                        else None,
+                        "last_operation": (
+                            infra_state.last_operation.value
+                            if infra_state.last_operation
+                            else None
+                        ),
                         "last_updated": infra_state.last_updated,
                         "terraform_workspace": infra_state.terraform_workspace,
                         "outputs": infra_state.outputs,
@@ -515,17 +517,19 @@ class MuppetLifecycleService:
                         "template": muppet.template,
                         "status": muppet.status.value,
                         "github_repo_url": muppet.github_repo_url,
-                        "created_at": muppet.created_at.isoformat()
-                        if muppet.created_at
-                        else None,
-                        "updated_at": muppet.updated_at.isoformat()
-                        if muppet.updated_at
-                        else None,
+                        "created_at": (
+                            muppet.created_at.isoformat() if muppet.created_at else None
+                        ),
+                        "updated_at": (
+                            muppet.updated_at.isoformat() if muppet.updated_at else None
+                        ),
                         "deployed": deployment_status is not None,
-                        "health": "healthy"
-                        if deployment_status
-                        and deployment_status.get("health_status") == "healthy"
-                        else "unknown",
+                        "health": (
+                            "healthy"
+                            if deployment_status
+                            and deployment_status.get("health_status") == "healthy"
+                            else "unknown"
+                        ),
                     }
 
                     if deployment_status:
@@ -546,9 +550,9 @@ class MuppetLifecycleService:
                         "template": muppet.template,
                         "status": muppet.status.value,
                         "github_repo_url": muppet.github_repo_url,
-                        "created_at": muppet.created_at.isoformat()
-                        if muppet.created_at
-                        else None,
+                        "created_at": (
+                            muppet.created_at.isoformat() if muppet.created_at else None
+                        ),
                         "error": f"Failed to get status: {str(e)}",
                     }
                     muppet_summaries.append(summary)

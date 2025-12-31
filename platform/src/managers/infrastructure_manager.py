@@ -212,9 +212,9 @@ class InfrastructureManager:
             return DeploymentState(
                 muppet_name=config.muppet_name,
                 status=DeploymentStatus.FAILED,
-                terraform_workspace=str(workspace_dir)
-                if "workspace_dir" in locals()
-                else "",
+                terraform_workspace=(
+                    str(workspace_dir) if "workspace_dir" in locals() else ""
+                ),
                 state_backend="local",
                 last_operation=TerraformOperation.APPLY,
                 last_updated=self._get_current_timestamp(),

@@ -708,15 +708,15 @@ class MCPToolRegistry:
                 "updated_muppets": successful_updates,
                 "failed_muppets": failed_updates,
                 "updated_files": updated_files,
-                "updated_at": shared_docs[0].last_updated.isoformat()
-                if shared_docs
-                else None,
+                "updated_at": (
+                    shared_docs[0].last_updated.isoformat() if shared_docs else None
+                ),
             }
 
             if failed_updates:
-                response[
-                    "warning"
-                ] = f"Failed to update {len(failed_updates)} muppets: {', '.join(failed_updates)}"
+                response["warning"] = (
+                    f"Failed to update {len(failed_updates)} muppets: {', '.join(failed_updates)}"
+                )
 
             return json.dumps(response)
 
@@ -1081,15 +1081,15 @@ class MCPToolRegistry:
                 "template_type": template_type,
                 "versions": template_versions,
                 "total_versions": len(template_versions),
-                "latest_version": template_versions[0]["version"]
-                if template_versions
-                else None,
-                "workflows": latest_manifest.get("workflows", {})
-                if latest_manifest
-                else {},
-                "requirements": latest_manifest.get("requirements", {})
-                if latest_manifest
-                else {},
+                "latest_version": (
+                    template_versions[0]["version"] if template_versions else None
+                ),
+                "workflows": (
+                    latest_manifest.get("workflows", {}) if latest_manifest else {}
+                ),
+                "requirements": (
+                    latest_manifest.get("requirements", {}) if latest_manifest else {}
+                ),
                 "retrieved_at": datetime.utcnow().isoformat() + "Z",
             }
 
@@ -1143,9 +1143,9 @@ class MCPToolRegistry:
 
             if update_data.get("success"):
                 # Modify the response to indicate this was a rollback
-                update_data[
-                    "message"
-                ] = f"Rolled back pipelines for muppet '{muppet_name}' from '{current_version}' to '{workflow_version}'"
+                update_data["message"] = (
+                    f"Rolled back pipelines for muppet '{muppet_name}' from '{current_version}' to '{workflow_version}'"
+                )
                 update_data["rollback"] = True
                 update_data["previous_version"] = current_version
 

@@ -213,9 +213,12 @@ class TestMCPAuthenticationProperty:
             authenticator = MCPAuthenticator()
 
             # Mock the token validation to accept our generated tokens
-            with patch.object(
-                authenticator, "_validate_token", return_value=True
-            ), patch.object(authenticator, "_authorize_tool_access", return_value=True):
+            with (
+                patch.object(authenticator, "_validate_token", return_value=True),
+                patch.object(
+                    authenticator, "_authorize_tool_access", return_value=True
+                ),
+            ):
                 # Act - Authenticate the request
                 is_authenticated = await authenticator.authenticate(request)
 
@@ -325,17 +328,19 @@ class TestMCPAuthenticationProperty:
             tool_registry = MCPToolRegistry()
 
             # Mock the token validation and authorization to succeed
-            with patch.object(
-                authenticator, "_validate_token", return_value=True
-            ), patch.object(
-                authenticator, "_authorize_tool_access", return_value=True
-            ), patch.object(
-                tool_registry,
-                "execute_tool",
-                return_value=json.dumps(
-                    {"success": True, "message": "Tool executed successfully"}
+            with (
+                patch.object(authenticator, "_validate_token", return_value=True),
+                patch.object(
+                    authenticator, "_authorize_tool_access", return_value=True
                 ),
-            ) as mock_execute:
+                patch.object(
+                    tool_registry,
+                    "execute_tool",
+                    return_value=json.dumps(
+                        {"success": True, "message": "Tool executed successfully"}
+                    ),
+                ) as mock_execute,
+            ):
                 # Act - Test the authentication flow
                 is_authenticated = await authenticator.authenticate(request)
 

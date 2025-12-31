@@ -189,7 +189,9 @@ class TestJavaPackageNaming:
         assert self.context._to_java_package_name("résumé-parser") == "r_sum_parser"
 
         # Emoji and other Unicode
-        assert self.context._to_java_package_name("🚀rocket-service") == "rocket_service"
+        assert (
+            self.context._to_java_package_name("🚀rocket-service") == "rocket_service"
+        )
         assert self.context._to_java_package_name("service-✨") == "service"
 
     def test_case_sensitivity_edge_cases(self):

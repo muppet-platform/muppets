@@ -241,9 +241,11 @@ def verify_all_templates(args) -> int:
                     "total_templates": total_templates,
                     "successful_templates": successful_templates,
                     "failed_templates": failed_templates,
-                    "timestamp": results[list(results.keys())[0]].to_dict()["timestamp"]
-                    if results
-                    else None,
+                    "timestamp": (
+                        results[list(results.keys())[0]].to_dict()["timestamp"]
+                        if results
+                        else None
+                    ),
                 },
                 "results": {name: result.to_dict() for name, result in results.items()},
             }

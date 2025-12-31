@@ -46,9 +46,11 @@ async def test_steering_manager_initialization(steering_manager):
 async def test_get_shared_steering_documents(steering_manager):
     """Test getting shared steering documents."""
     # Mock the file system
-    with patch("pathlib.Path.exists", return_value=True), patch(
-        "pathlib.Path.glob"
-    ) as mock_glob, patch("aiofiles.open") as mock_open:
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.glob") as mock_glob,
+        patch("aiofiles.open") as mock_open,
+    ):
         # Mock file paths
         mock_file = MagicMock()
         mock_file.stem = "http-responses"
@@ -78,9 +80,11 @@ async def test_get_template_steering_documents(steering_manager):
     template_type = "java-micronaut"
 
     # Mock the file system
-    with patch("pathlib.Path.exists", return_value=True), patch(
-        "pathlib.Path.glob"
-    ) as mock_glob, patch("aiofiles.open") as mock_open:
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.glob") as mock_glob,
+        patch("aiofiles.open") as mock_open,
+    ):
         # Mock file paths
         mock_file = MagicMock()
         mock_file.stem = "micronaut-patterns"

@@ -4,6 +4,7 @@ Unit tests for GitHub workflow creation functionality.
 These tests verify that GitHub Actions workflows are properly generated and pushed
 to repositories when creating muppets.
 """
+
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch

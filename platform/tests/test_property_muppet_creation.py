@@ -93,21 +93,20 @@ class TestMuppetCreationCompleteness:
 
         async def async_test():
             # Set up mocks within the test
-            with patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
-                return_value=None,
-            ), patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_template",
-                return_value=None,
-            ), patch(
-                "src.integrations.github.GitHubClient"
-            ) as mock_github, patch(
-                "src.integrations.aws.ECSClient"
-            ) as mock_ecs, patch(
-                "src.integrations.aws.ParameterStoreClient"
-            ) as mock_param_store, patch(
-                "src.state_manager.get_state_manager"
-            ) as mock_get_state_manager:
+            with (
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
+                    return_value=None,
+                ),
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_template",
+                    return_value=None,
+                ),
+                patch("src.integrations.github.GitHubClient") as mock_github,
+                patch("src.integrations.aws.ECSClient") as mock_ecs,
+                patch("src.integrations.aws.ParameterStoreClient") as mock_param_store,
+                patch("src.state_manager.get_state_manager") as mock_get_state_manager,
+            ):
                 # Configure mocks
                 github_instance = AsyncMock()
                 github_instance.create_repository.return_value = {
@@ -258,12 +257,15 @@ class TestMuppetCreationCompleteness:
             except Exception:
                 pass  # Expected for invalid names
 
-            with patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
-                return_value=None,
-            ), patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_template",
-                return_value=None,
+            with (
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
+                    return_value=None,
+                ),
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_template",
+                    return_value=None,
+                ),
             ):
                 # Create mocked dependencies
                 mock_lifecycle_service = AsyncMock()
@@ -315,12 +317,15 @@ class TestMuppetCreationCompleteness:
             if invalid_template in valid_templates:
                 pytest.skip("Generated template is actually valid")
 
-            with patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
-                return_value=None,
-            ), patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_template",
-                return_value=None,
+            with (
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
+                    return_value=None,
+                ),
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_template",
+                    return_value=None,
+                ),
             ):
                 # Create mocked dependencies
                 mock_lifecycle_service = AsyncMock()
@@ -371,21 +376,20 @@ class TestMuppetCreationCompleteness:
                 {"name": "data-processor", "template": "java-micronaut"},
             ]
 
-            with patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
-                return_value=None,
-            ), patch(
-                "src.platform_mcp.tools.MCPToolRegistry._validate_template",
-                return_value=None,
-            ), patch(
-                "src.integrations.github.GitHubClient"
-            ) as mock_github, patch(
-                "src.integrations.aws.ECSClient"
-            ) as mock_ecs, patch(
-                "src.integrations.aws.ParameterStoreClient"
-            ) as mock_param_store, patch(
-                "src.state_manager.get_state_manager"
-            ) as mock_get_state_manager:
+            with (
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_muppet_name",
+                    return_value=None,
+                ),
+                patch(
+                    "src.platform_mcp.tools.MCPToolRegistry._validate_template",
+                    return_value=None,
+                ),
+                patch("src.integrations.github.GitHubClient") as mock_github,
+                patch("src.integrations.aws.ECSClient") as mock_ecs,
+                patch("src.integrations.aws.ParameterStoreClient") as mock_param_store,
+                patch("src.state_manager.get_state_manager") as mock_get_state_manager,
+            ):
                 # Configure mocks
                 github_instance = AsyncMock()
                 github_instance.create_repository.return_value = {

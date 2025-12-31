@@ -363,9 +363,11 @@ async def list_muppets(
                 template=muppet_data["template"],
                 status=muppet_data["status"],
                 github_repo_url=muppet_data["github_repo_url"],
-                created_at=datetime.fromisoformat(muppet_data["created_at"])
-                if muppet_data.get("created_at")
-                else None,
+                created_at=(
+                    datetime.fromisoformat(muppet_data["created_at"])
+                    if muppet_data.get("created_at")
+                    else None
+                ),
                 fargate_service_arn=muppet_data.get("fargate_service_arn"),
             )
             muppet_summaries.append(summary)

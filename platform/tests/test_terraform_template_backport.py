@@ -1,6 +1,7 @@
 """
 Test terraform template backport to ensure simplified configuration works correctly.
 """
+
 import tempfile
 from pathlib import Path
 

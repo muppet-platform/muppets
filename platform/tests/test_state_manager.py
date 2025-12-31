@@ -36,13 +36,13 @@ async def test_state_manager_initialization(state_manager):
 async def test_initialize_state_manager(state_manager):
     """Test state manager initialization."""
     # Mock the integration clients
-    with patch.object(
-        state_manager.github_client, "discover_muppets"
-    ) as mock_github, patch.object(
-        state_manager.parameter_store, "get_parameters_by_path"
-    ) as mock_params, patch.object(
-        state_manager.ecs_client, "get_active_deployments"
-    ) as mock_ecs:
+    with (
+        patch.object(state_manager.github_client, "discover_muppets") as mock_github,
+        patch.object(
+            state_manager.parameter_store, "get_parameters_by_path"
+        ) as mock_params,
+        patch.object(state_manager.ecs_client, "get_active_deployments") as mock_ecs,
+    ):
         # Setup mock responses
         mock_muppets = [
             Muppet(
@@ -78,13 +78,13 @@ async def test_initialize_state_manager(state_manager):
 async def test_get_state_after_initialization(state_manager):
     """Test getting state after initialization."""
     # Mock the integration clients
-    with patch.object(
-        state_manager.github_client, "discover_muppets"
-    ) as mock_github, patch.object(
-        state_manager.parameter_store, "get_parameters_by_path"
-    ) as mock_params, patch.object(
-        state_manager.ecs_client, "get_active_deployments"
-    ) as mock_ecs:
+    with (
+        patch.object(state_manager.github_client, "discover_muppets") as mock_github,
+        patch.object(
+            state_manager.parameter_store, "get_parameters_by_path"
+        ) as mock_params,
+        patch.object(state_manager.ecs_client, "get_active_deployments") as mock_ecs,
+    ):
         # Setup mock responses
         mock_muppets = [
             Muppet(

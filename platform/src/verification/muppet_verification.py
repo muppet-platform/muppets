@@ -719,9 +719,9 @@ class MuppetVerificationSystem:
                                 timeout=self.config.script_timeout_seconds,
                             )
 
-                            script_result[
-                                "functional_test_output"
-                            ] = f"Exit code: {test_result.returncode}\nSTDOUT:\n{test_result.stdout}\nSTDERR:\n{test_result.stderr}"
+                            script_result["functional_test_output"] = (
+                                f"Exit code: {test_result.returncode}\nSTDOUT:\n{test_result.stdout}\nSTDERR:\n{test_result.stderr}"
+                            )
 
                             # Consider test passed if exit code is 0 or 1 (some scripts return 1 for --help)
                             if test_result.returncode in [0, 1]:

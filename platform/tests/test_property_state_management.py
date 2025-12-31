@@ -99,17 +99,17 @@ def active_deployments(draw, muppets: List[Muppet]):
 
     # Add some deployments for existing muppets
     for muppet in draw(st.lists(st.sampled_from(muppets), max_size=len(muppets))):
-        deployments[
-            muppet.name
-        ] = f"arn:aws:ecs:us-west-2:123456789012:service/cluster/{muppet.name}"
+        deployments[muppet.name] = (
+            f"arn:aws:ecs:us-west-2:123456789012:service/cluster/{muppet.name}"
+        )
 
     # Add some orphaned deployments (deployments without corresponding muppets)
     orphaned_count = draw(st.integers(min_value=0, max_value=3))
     for i in range(orphaned_count):
         orphaned_name = f"orphaned-{i}"
-        deployments[
-            orphaned_name
-        ] = f"arn:aws:ecs:us-west-2:123456789012:service/cluster/{orphaned_name}"
+        deployments[orphaned_name] = (
+            f"arn:aws:ecs:us-west-2:123456789012:service/cluster/{orphaned_name}"
+        )
 
     return deployments
 
@@ -182,9 +182,9 @@ class TestStateManagementRegistryConsistency:
             for muppet in muppets:
                 # Some muppets have deployments, some don't
                 if hash(muppet.name) % 3 != 0:  # Deterministic but varied
-                    deployments[
-                        muppet.name
-                    ] = f"arn:aws:ecs:us-west-2:123456789012:service/cluster/{muppet.name}"
+                    deployments[muppet.name] = (
+                        f"arn:aws:ecs:us-west-2:123456789012:service/cluster/{muppet.name}"
+                    )
 
             # Create StateManager instance first
             state_manager = StateManager()

@@ -60,15 +60,14 @@ async def test_create_muppet_repository_success(
     github_manager, mock_repo_data, mock_template_files
 ):
     """Test successful muppet repository creation."""
-    with patch.object(
-        github_manager.client, "create_repository"
-    ) as mock_create, patch.object(
-        github_manager.client, "setup_repository_permissions"
-    ) as mock_permissions, patch.object(
-        github_manager.client, "push_template_code"
-    ) as mock_push, patch.object(
-        github_manager, "_validate_repository_inputs"
-    ) as mock_validate:
+    with (
+        patch.object(github_manager.client, "create_repository") as mock_create,
+        patch.object(
+            github_manager.client, "setup_repository_permissions"
+        ) as mock_permissions,
+        patch.object(github_manager.client, "push_template_code") as mock_push,
+        patch.object(github_manager, "_validate_repository_inputs") as mock_validate,
+    ):
         # Setup mocks
         mock_create.return_value = mock_repo_data
         mock_permissions.return_value = True
@@ -106,15 +105,14 @@ async def test_create_muppet_repository_without_template_files(
     github_manager, mock_repo_data
 ):
     """Test muppet repository creation without template files."""
-    with patch.object(
-        github_manager.client, "create_repository"
-    ) as mock_create, patch.object(
-        github_manager.client, "setup_repository_permissions"
-    ) as mock_permissions, patch.object(
-        github_manager.client, "push_template_code"
-    ) as mock_push, patch.object(
-        github_manager, "_validate_repository_inputs"
-    ) as mock_validate:
+    with (
+        patch.object(github_manager.client, "create_repository") as mock_create,
+        patch.object(
+            github_manager.client, "setup_repository_permissions"
+        ) as mock_permissions,
+        patch.object(github_manager.client, "push_template_code") as mock_push,
+        patch.object(github_manager, "_validate_repository_inputs") as mock_validate,
+    ):
         # Setup mocks
         mock_create.return_value = mock_repo_data
         mock_permissions.return_value = True
@@ -148,11 +146,10 @@ async def test_create_muppet_repository_validation_error(github_manager):
 @pytest.mark.asyncio
 async def test_create_muppet_repository_github_error(github_manager):
     """Test repository creation with GitHub API error."""
-    with patch.object(
-        github_manager.client, "create_repository"
-    ) as mock_create, patch.object(
-        github_manager, "_validate_repository_inputs"
-    ) as mock_validate:
+    with (
+        patch.object(github_manager.client, "create_repository") as mock_create,
+        patch.object(github_manager, "_validate_repository_inputs") as mock_validate,
+    ):
         mock_validate.return_value = None
         mock_create.side_effect = GitHubError("Repository already exists")
 
@@ -228,11 +225,12 @@ async def test_get_repository_info_success(github_manager, mock_repo_data):
         {"login": "dev1", "permissions": {"admin": False, "push": True, "pull": True}},
     ]
 
-    with patch.object(
-        github_manager.client, "get_repository"
-    ) as mock_get, patch.object(
-        github_manager.client, "get_repository_collaborators"
-    ) as mock_collab:
+    with (
+        patch.object(github_manager.client, "get_repository") as mock_get,
+        patch.object(
+            github_manager.client, "get_repository_collaborators"
+        ) as mock_collab,
+    ):
         mock_get.return_value = mock_repo_data
         mock_collab.return_value = mock_collaborators
 
@@ -344,13 +342,13 @@ async def test_create_muppet_repository_with_custom_permissions(
     """Test repository creation with custom team permissions."""
     custom_permissions = {"custom-team": "admin", "dev-team": "push"}
 
-    with patch.object(
-        github_manager.client, "create_repository"
-    ) as mock_create, patch.object(
-        github_manager.client, "setup_repository_permissions"
-    ) as mock_permissions, patch.object(
-        github_manager, "_validate_repository_inputs"
-    ) as mock_validate:
+    with (
+        patch.object(github_manager.client, "create_repository") as mock_create,
+        patch.object(
+            github_manager.client, "setup_repository_permissions"
+        ) as mock_permissions,
+        patch.object(github_manager, "_validate_repository_inputs") as mock_validate,
+    ):
         mock_create.return_value = mock_repo_data
         mock_permissions.return_value = True
         mock_validate.return_value = None
@@ -368,11 +366,10 @@ async def test_create_muppet_repository_with_custom_permissions(
 @pytest.mark.asyncio
 async def test_error_handling_in_create_repository(github_manager):
     """Test error handling during repository creation."""
-    with patch.object(
-        github_manager.client, "create_repository"
-    ) as mock_create, patch.object(
-        github_manager, "_validate_repository_inputs"
-    ) as mock_validate:
+    with (
+        patch.object(github_manager.client, "create_repository") as mock_create,
+        patch.object(github_manager, "_validate_repository_inputs") as mock_validate,
+    ):
         mock_validate.return_value = None
         mock_create.side_effect = Exception("Unexpected error")
 

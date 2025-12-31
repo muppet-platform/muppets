@@ -559,9 +559,9 @@ class DeploymentService:
                 "desired_count": service.get("desiredCount", 0),
                 "running_count": service.get("runningCount", 0),
                 "pending_count": service.get("pendingCount", 0),
-                "health_status": "healthy"
-                if service.get("runningCount", 0) > 0
-                else "unhealthy",
+                "health_status": (
+                    "healthy" if service.get("runningCount", 0) > 0 else "unhealthy"
+                ),
             }
 
         except Exception as e:

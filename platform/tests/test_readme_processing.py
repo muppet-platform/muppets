@@ -1,6 +1,7 @@
 """
 Test README template processing to prevent duplication issues.
 """
+
 import tempfile
 from pathlib import Path
 

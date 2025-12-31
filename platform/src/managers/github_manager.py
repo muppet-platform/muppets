@@ -238,12 +238,12 @@ class GitHubManager:
                     "template": muppet.template,
                     "status": muppet.status.value,
                     "url": muppet.github_repo_url,
-                    "created_at": muppet.created_at.isoformat()
-                    if muppet.created_at
-                    else None,
-                    "updated_at": muppet.updated_at.isoformat()
-                    if muppet.updated_at
-                    else None,
+                    "created_at": (
+                        muppet.created_at.isoformat() if muppet.created_at else None
+                    ),
+                    "updated_at": (
+                        muppet.updated_at.isoformat() if muppet.updated_at else None
+                    ),
                 }
                 repositories.append(repo_info)
 
