@@ -1,49 +1,58 @@
+---
+inclusion: always
+---
+
 # Testing with Mocks and Dependency Injection
 
 ## Core Principle
-
-**Tests should never depend on external services.** All network calls, database connections, and third-party APIs must be mocked to ensure fast, reliable, and deterministic tests.
+**Tests must never depend on external services.** Mock all network calls, databases, and third-party APIs for fast, reliable, deterministic tests.
 
 ## Mandatory Patterns
 
-### 1. Design for Testability
-
-**✅ Always use dependency injection:**
+### 1. Dependency Injection
 ```python
+# ✅ Testable
 class ServiceClass:
     def __init__(self, github_client=None, aws_client=None):
         self.github_client = github_client or GitHubClient()
         self.aws_client = aws_client or AWSClient()
-```
 
-**❌ Never hard-code dependencies:**
-```python
+# ❌ Untestable
 class ServiceClass:
     def __init__(self):
-        self.github_client = GitHubClient()  # Untestable
+        self.github_client = GitHubClient()  # Hard-coded
 ```
 
-### 2. Mock All External Services
+### 2. Mock External Services
+Always mock: GitHub API, AWS services, databases, HTTP requests, file system operations
 
-**Always mock these in tests:**
-- GitHub API calls
-- AWS services (ECS, S3, Parameter Store, etc.)
-- Database connections
-- HTTP requests to external APIs
-- File system operations (when testing logic, not I/O)
-
-### 3. Comprehensive Test Fixtures
-
+### 3. Complete Mock Data
 ```python
 @pytest.fixture
 def mock_service():
     mock = AsyncMock()
-    # Include ALL fields the real implementation returns
     mock.method.return_value = {
         "success": True,
         "data": {...},
         "timestamp": "2025-01-01T00:00:00Z"
     }
+    return mock
+```
+
+### 4. Property-Based Tests
+```python
+@given(test_data())
+def test_property(data):
+    mock_service = AsyncMock()  # Must mock dependencies
+    tool = ServiceClass(external_service=mock_service)
+    # Test logic
+```
+
+## Enforcement
+- All services MUST accept dependencies as constructor parameters
+- All tests MUST mock external service calls
+- Mock responses MUST match real implementation structure exactly
+- Tests making real network calls will be rejected
     return mock
 ```
 

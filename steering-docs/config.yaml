@@ -31,6 +31,11 @@ shared_docs:
       file: "shared/performance.md"
       description: "Response time targets and optimization practices"
       required: true
+    
+    - name: "infrastructure"
+      file: "shared/infrastructure.md"
+      description: "OpenTofu requirements, shared modules, and deployment principles"
+      required: true
 
 distribution:
   on_muppet_creation: true

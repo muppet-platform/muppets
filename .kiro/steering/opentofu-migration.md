@@ -1,47 +1,44 @@
-# OpenTofu Migration and Usage Guidelines
+---
+inclusion: always
+---
 
-## Overview
+# OpenTofu Migration Guidelines
 
-The Muppet Platform has migrated from Terraform to OpenTofu for all infrastructure-as-code operations. This document outlines the migration rationale, implementation details, and usage guidelines.
+## Platform Migration: Terraform → OpenTofu
+
+**Note**: For platform developers only. Muppet developers see shared infrastructure docs.
 
 ## Why OpenTofu?
+- Open source governance with MPL 2.0 license
+- 100% Terraform 1.5.x compatibility
+- Vendor independence and active development
 
-**OpenTofu Benefits:**
-- **Open Source Governance**: Community-driven development with transparent governance
-- **License Stability**: MPL 2.0 license provides long-term stability
-- **Terraform Compatibility**: 100% compatible with Terraform 1.5.x syntax and modules
-- **Active Development**: Regular releases with bug fixes and new features
-- **Vendor Independence**: Not controlled by a single commercial entity
-
-## Migration Status
-
-✅ **Completed:**
-- Requirements document updated to reference OpenTofu modules
-- Design document updated with OpenTofu architecture
-- Task list updated for OpenTofu implementation
-- All new development uses OpenTofu
-
-🔄 **In Progress:**
-- Infrastructure modules being developed with OpenTofu
-- Platform service updated to use `tofu` commands
-- CI/CD pipelines configured for OpenTofu
-
-## Installation and Setup
-
-### Local Development
-
-**macOS (Homebrew):**
+## Command Migration
 ```bash
-brew install opentofu
+# Old → New
+terraform init    → tofu init
+terraform plan    → tofu plan
+terraform apply   → tofu apply
+terraform destroy → tofu destroy
 ```
 
-**Linux (Package Manager):**
+## Installation
 ```bash
-# Ubuntu/Debian
+# macOS
+brew install opentofu
+
+# Linux
 curl -fsSL https://get.opentofu.org/install-opentofu.sh | sh
 
-# Or download from releases
-wget https://github.com/opentofu/opentofu/releases/download/v1.6.0/tofu_1.6.0_linux_amd64.zip
+# Verify
+tofu version
+```
+
+## Platform Integration
+- All platform scripts use `tofu` commands
+- CI/CD pipelines configured for OpenTofu
+- Shared modules developed with OpenTofu
+- State files compatible (no migration needed)
 ```
 
 **Verification:**

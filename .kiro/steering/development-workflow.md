@@ -4,100 +4,90 @@ inclusion: always
 
 # Development Workflow and Code Quality Standards
 
-This document defines the mandatory development workflow for the Muppet Platform. **All code changes must follow this process without exception.**
+**Mandatory 5-step process for all code changes. No exceptions.**
 
 ## Core Principle
+**Quality First**: Every commit must pass all tests and undergo rigorous review.
 
-**Quality First**: Every commit must pass all tests and undergo rigorous review. No shortcuts, no exceptions.
-
-## Mandatory Development Workflow
+## Mandatory Workflow
 
 ### Step 1: Pre-Commit Testing (MANDATORY)
-
-Before every commit, you MUST run the complete test suite:
-
 ```bash
-cd platform
-make ci-full    # Runs exactly what GitHub Actions runs
+cd platform && make ci-full  # Must pass before commit
 ```
-
-**What this includes:**
-- Code formatting (black, isort)
-- Linting (flake8, mypy)
-- Basic security checks (bandit, safety)
-- Unit tests
-- Integration tests
-- Property-based tests (fast mode)
-- MCP validation tests
-- Template validation
 
 **If ANY test fails:**
-- ❌ **DO NOT COMMIT**
-- ❌ **DO NOT push**
-- ❌ **DO NOT create PR**
+- ❌ DO NOT COMMIT, PUSH, or CREATE PR
 
-### Step 1.5: GitHub CI/CD Status Check (MANDATORY AFTER PUSH)
-
-After pushing commits, you MUST monitor GitHub Actions status:
-
+### Step 1.5: GitHub Actions Monitoring (MANDATORY)
 ```bash
-# Check GitHub Actions status for recent commits
-gh run list --limit 5 --json status,conclusion,workflowName,createdAt,url
-
-# Watch specific workflow run in real-time
-gh run watch <run-id>
-
-# View logs for failed runs
-gh run view <run-id> --log-failed
+gh run list --limit 5  # Check within 10 minutes of push
+gh run watch <run-id>  # Monitor real-time
 ```
 
-**GitHub Actions Monitoring Requirements:**
-- ✅ **Monitor all workflows**: CI, CD, Security, Nightly
-- ✅ **Check within 10 minutes** of pushing
-- ✅ **Investigate ALL failures** immediately
-- ✅ **No ignoring failed workflows** - every failure must be analyzed
+**If ANY workflow fails:**
+- 🚨 IMMEDIATE ACTION REQUIRED
+- 🚨 DO NOT push until resolved
+- 🚨 MUST perform failure analysis (Step 2)
 
-**If ANY GitHub Actions workflow fails:**
-- 🚨 **IMMEDIATE ACTION REQUIRED**
-- 🚨 **DO NOT push additional commits** until failures are resolved
-- 🚨 **DO NOT merge PRs** with failing workflows
-- 🚨 **MUST perform failure analysis** (Step 2)
-
-### Step 2: Test Failure Analysis (MANDATORY)
-
-When tests fail locally OR GitHub Actions workflows fail, you MUST provide detailed analysis before making any fixes:
-
-**Required Analysis Format:**
+### Step 2: Failure Analysis (MANDATORY)
+When tests fail, provide detailed analysis:
 ```
-## Test/Workflow Failure Analysis
+## Failure Analysis
+### Failed Tests/Workflows: [exact errors + GitHub URLs]
+### Root Cause: [why it failed, what changed]
+### Impact: [functionality broken, risk level]
+### Fix Strategy: [specific approach, why correct]
+```
 
-### Failed Tests/Workflows:
-- [List each failing test/workflow with exact error message]
-- [Include GitHub Actions run URLs for workflow failures]
+### Step 3: Critical Code Review (MANDATORY)
+Review checklist:
+- [ ] Architecture & design principles followed
+- [ ] Code quality & readability
+- [ ] Security & input validation
+- [ ] Testing & edge cases
+- [ ] Performance & compatibility
 
-### Root Cause Analysis:
-- [Detailed explanation of WHY each test/workflow failed]
-- [What code change caused the failure]
-- [What the test/workflow was expecting vs what it got]
-- [Environment differences between local and GitHub Actions if applicable]
+### Step 4: User Permission (MANDATORY)
+Present analysis and ask explicit permission:
+```
+Based on analysis, I recommend:
+1. [Change 1 with rationale]
+2. [Change 2 with rationale]
 
-### Impact Assessment:
-- [What functionality is broken]
-- [What other components might be affected]
-- [Risk level: Critical/High/Medium/Low]
-- [Production impact if this reaches main branch]
+**May I proceed with implementing these changes?**
+```
 
-### GitHub Actions Specific Analysis (if applicable):
-- [Workflow name and run ID]
-- [Job that failed and step that failed]
-- [Environment differences (OS, dependencies, secrets)]
-- [Timing issues or resource constraints]
-- [Integration failures with external services]
+### Step 5: Iterative Process (MANDATORY)
+1. Implement approved changes
+2. Return to Step 1 (run tests again)
+3. Repeat until ALL tests pass AND ALL workflows pass
+4. Only then consider work complete
 
-### Proposed Fix Strategy:
-- [Specific approach to fix each failure]
-- [Why this approach is correct]
-- [What changes will be made]
+## Quality Gates
+**Before commit:**
+- ✅ All tests pass (`make ci-full`)
+- ✅ Failure analysis provided (if needed)
+- ✅ Critical code review completed
+- ✅ User permission granted
+
+**After push:**
+- ✅ All GitHub Actions workflows pass
+- ✅ No failing runs in last 24 hours
+
+## Essential Commands
+```bash
+# Complete CI simulation
+make ci-full
+
+# GitHub Actions monitoring
+gh run list && gh run watch <run-id>
+
+# Development environment
+make run && make stop && make clean
+```
+
+**Remember: Quality is not negotiable. This process protects platform integrity.**
 - [How to prevent similar failures in the future]
 ```
 

@@ -1,6 +1,54 @@
+---
+inclusion: always
+---
+
 # Micronaut Development Guide for {{muppet_name}}
 
 This guide provides Micronaut-specific development patterns and best practices for your {{muppet_name}} muppet.
+
+**Important**: This document supplements the shared platform standards that are automatically distributed to your muppet. All muppets must follow both the shared standards and these Micronaut-specific guidelines.
+
+## Required Reading
+
+Before developing with this template, review these shared standards in your `.kiro/steering/shared/` directory:
+- `security.md` - Authentication, authorization, and security practices
+- `http-responses.md` - API response formats and status codes
+- `test-coverage.md` - Minimum 70% test coverage requirements
+- `logging.md` - Structured logging and monitoring standards
+- `performance.md` - Response time targets and optimization guidelines
+- `infrastructure.md` - OpenTofu and deployment standards
+
+**Note**: These shared standards are automatically distributed by the Muppet Platform and kept up-to-date through the platform's steering management system.
+
+## Java Version Requirements
+
+**MANDATORY**: This muppet MUST use Java 21 LTS (Amazon Corretto 21).
+
+### Why Java 21 LTS?
+- **Long-term Support**: Extended support until September 2031
+- **Ecosystem Compatibility**: Full support from Gradle, Micronaut, and libraries
+- **Performance**: Significant improvements over Java 17
+- **Modern Features**: Virtual threads, pattern matching, records, sealed classes
+- **AWS Optimization**: Amazon Corretto is optimized for AWS workloads
+
+### Verification
+```bash
+# Check Java version
+java -version
+# Should show: openjdk version "21.x.x" 2024-xx-xx LTS
+
+# Verify it's Amazon Corretto
+java -version 2>&1 | grep -q "Corretto" && echo "✅ Amazon Corretto 21" || echo "❌ Wrong Java distribution"
+```
+
+**Installation**: If you need Java 21 LTS:
+```bash
+# macOS
+brew install --cask corretto@21
+
+# Set JAVA_HOME
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-21.jdk/Contents/Home
+```
 
 ## Project Structure
 
@@ -82,6 +130,8 @@ public class FeatureConfig {
 
 ### 4. Testing Patterns
 
+**MANDATORY**: Follow the shared test coverage requirements (see `.kiro/steering/shared/test-coverage.md`) - minimum 70% coverage.
+
 #### Controller Tests
 ```java
 @MicronautTest
@@ -94,6 +144,7 @@ class ItemControllerTest {
     @Test
     void testCreateItem() {
         // Test implementation
+        // Must follow shared testing standards
     }
 }
 ```
@@ -104,8 +155,16 @@ class ItemControllerTest {
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ItemIntegrationTest {
     // Integration test implementation
+    // Must mock external dependencies per shared standards
 }
 ```
+
+#### Security Testing
+Follow the shared security guidelines (see `.kiro/steering/shared/security.md`) for:
+- Authentication testing
+- Authorization validation
+- Input validation testing
+- Security vulnerability scanning
 
 ## Micronaut Best Practices
 
@@ -125,13 +184,31 @@ public interface ExternalServiceClient {
 ```
 
 ### 3. Error Handling
+
+**MANDATORY**: Follow the shared HTTP response standards (see `.kiro/steering/shared/http-responses.md`) for consistent error responses.
+
 ```java
 @Error(global = true)
 public class GlobalErrorHandler {
     
     @Error
     public HttpResponse<JsonError> error(HttpRequest request, Throwable ex) {
-        return HttpResponse.serverError(new JsonError("Internal error"));
+        // Must return standardized error format per shared standards
+        return HttpResponse.serverError(new JsonError(
+            "INTERNAL_ERROR",
+            "An unexpected error occurred",
+            Collections.emptyList()
+        ));
+    }
+    
+    @Error(status = HttpStatus.BAD_REQUEST)
+    public HttpResponse<JsonError> badRequest(HttpRequest request, ValidationException ex) {
+        // Follow shared error response format
+        return HttpResponse.badRequest(new JsonError(
+            "VALIDATION_ERROR",
+            "The request contains invalid data",
+            ex.getValidationErrors()
+        ));
     }
 }
 ```
@@ -157,30 +234,97 @@ The template includes health check endpoints:
 - `/health/live` - Liveness probe
 
 ### Metrics
+
+**MANDATORY**: Follow the shared performance guidelines (see `.kiro/steering/shared/performance.md`) for monitoring and metrics.
+
 Metrics are automatically exported to CloudWatch in production:
 - HTTP request metrics
-- JVM metrics
+- JVM metrics  
 - Custom business metrics
 
-Add custom metrics:
+Add custom metrics following performance standards:
 ```java
 @Inject
 MeterRegistry meterRegistry;
 
 public void recordBusinessMetric() {
-    meterRegistry.counter("business.operation.count").increment();
+    // Follow shared performance monitoring patterns
+    meterRegistry.counter("business.operation.count", 
+        "service", "{{muppet_name}}",
+        "operation", "process_item"
+    ).increment();
 }
 ```
 
 ### Logging
-Use structured logging with SLF4J:
+
+**MANDATORY**: Follow the shared logging standards (see `.kiro/steering/shared/logging.md`) for structured logging.
+
 ```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+
 private static final Logger log = LoggerFactory.getLogger(ItemController.class);
 
 public void processItem(Item item) {
-    log.info("Processing item: {}", item.getId());
+    // Add context to MDC for structured logging
+    MDC.put("operation", "process_item");
+    MDC.put("item_id", item.getId());
+    
+    try {
+        log.info("Processing item: {}", item.getId());
+        // Processing logic
+        log.info("Item processed successfully");
+    } catch (Exception e) {
+        log.error("Failed to process item", e);
+        throw e;
+    } finally {
+        MDC.clear();
+    }
 }
 ```
+
+**Security Note**: Never log sensitive data. Follow the shared security guidelines (see `.kiro/steering/shared/security.md`) for data masking.
+
+## Security Implementation
+
+**MANDATORY**: Follow the shared security guidelines (see `.kiro/steering/shared/security.md`) for all security implementations.
+
+### Authentication
+```java
+@Controller("/api/v1/items")
+@Secured(SecurityRule.IS_AUTHENTICATED)
+public class ItemController {
+    
+    @Get
+    public HttpResponse<List<Item>> list(Authentication authentication) {
+        // User is authenticated, proceed with business logic
+        String userId = authentication.getName();
+        return HttpResponse.ok(itemService.getItemsForUser(userId));
+    }
+}
+```
+
+### Input Validation
+```java
+@Controller("/api/v1/items")
+public class ItemController {
+    
+    @Post
+    public HttpResponse<Item> create(@Body @Valid CreateItemRequest request) {
+        // Validation happens automatically
+        // Follow shared security standards for input sanitization
+        return HttpResponse.created(itemService.createItem(request));
+    }
+}
+```
+
+### Data Protection
+- Encrypt sensitive data at rest
+- Use HTTPS for all communications
+- Follow shared security guidelines for PII handling
+- Implement proper error handling that doesn't leak sensitive information
 
 ## Deployment
 
@@ -194,22 +338,68 @@ public void processItem(Item item) {
 ```
 
 ### AWS Deployment
+
+**MANDATORY**: Follow the shared infrastructure design principles (see `.kiro/steering/shared/infrastructure.md`) for all deployments.
+
 Deployment is handled automatically through GitHub Actions:
 - Push to `develop` → deploys to staging  
 - Push to `main` → deploys to production
 
 **CI/CD-Only Deployment Policy:**
-All production deployments MUST go through GitHub Actions workflows. Manual deployments are not supported for security and consistency reasons.
+All production deployments MUST go through GitHub Actions workflows. Manual deployments are prohibited for security and consistency reasons.
 
-**Triggering Deployments:**
-- **Automatic**: Push to main branch triggers production deployment
-- **Manual**: Use GitHub Actions → CD → Run workflow
-- **Environment Selection**: Choose development/staging/production in workflow
+**Deployment Process:**
+1. **Automatic**: Push to main branch triggers production deployment
+2. **Manual**: Use GitHub Actions → CD → Run workflow  
+3. **Environment Selection**: Choose development/staging/production in workflow
+4. **Monitoring**: Check GitHub Actions logs and health endpoints
 
-**Monitoring Deployments:**
-- Check GitHub Actions logs for deployment status
+**Infrastructure Requirements:**
+- All infrastructure defined in OpenTofu (not Terraform)
+- Use shared modules from the platform's terraform-modules repository
+- Follow security-by-default principles
+- Implement proper monitoring and alerting
+
+**Deployment Verification:**
 - Application URL provided in workflow output
 - Health check available at `/health` endpoint
+- Metrics available in CloudWatch dashboards
+- Logs structured according to shared logging standards
+
+## Compliance and Standards
+
+### Mandatory Requirements
+
+All {{muppet_name}} development must comply with the shared platform standards (see `.kiro/steering/shared/` directory):
+
+1. **Java Version**: Java 21 LTS (Amazon Corretto) only
+2. **Security**: Follow shared security guidelines for authentication, authorization, and data protection
+3. **Testing**: Minimum 70% test coverage with comprehensive test suites
+4. **Logging**: Structured logging with proper security and performance considerations
+5. **Performance**: Meet shared response time targets and optimization guidelines
+6. **Infrastructure**: Use OpenTofu with shared modules and CI/CD-only deployments
+7. **HTTP APIs**: Follow shared response standards and error handling patterns
+
+### Code Review Checklist
+
+Before submitting code for review, ensure:
+- [ ] Java 21 LTS compatibility verified
+- [ ] Security guidelines followed (see `.kiro/steering/shared/security.md`)
+- [ ] Test coverage meets 70% minimum requirement (see `.kiro/steering/shared/test-coverage.md`)
+- [ ] Logging follows structured format (see `.kiro/steering/shared/logging.md`)
+- [ ] Error handling uses shared response standards (see `.kiro/steering/shared/http-responses.md`)
+- [ ] Performance considerations addressed (see `.kiro/steering/shared/performance.md`)
+- [ ] Infrastructure changes use OpenTofu (see `.kiro/steering/shared/infrastructure.md`)
+- [ ] Documentation updated for new features
+
+### Quality Gates
+
+All code must pass:
+- [ ] Automated security scanning
+- [ ] Test coverage validation
+- [ ] Performance benchmarks
+- [ ] Infrastructure compliance checks
+- [ ] Code quality standards
 
 ## Troubleshooting
 
@@ -249,8 +439,23 @@ curl http://localhost:3000/health
 
 ## Resources
 
+### Platform Standards (in `.kiro/steering/shared/`)
+- `security.md` - Authentication, authorization, and security practices
+- `http-responses.md` - API response formats and status codes  
+- `test-coverage.md` - Testing standards and coverage requirements
+- `logging.md` - Structured logging and monitoring
+- `performance.md` - Response time targets and optimization
+- `infrastructure.md` - OpenTofu and deployment standards
+
+### External Resources
 - [Micronaut Documentation](https://docs.micronaut.io/)
 - [Micronaut Guides](https://guides.micronaut.io/)
 - [Java 21 Release Notes](https://openjdk.org/projects/jdk/21/)
 - [Amazon Corretto 21](https://aws.amazon.com/corretto/)
-- [Muppet Platform Documentation](https://github.com/muppet-platform/platform/docs)
+
+### Platform Integration
+- **MCP Tools**: Use Kiro's MCP integration (configured in `.kiro/settings/mcp.json`) for muppet management
+- **Shared Modules**: Infrastructure modules are automatically referenced in your `terraform/` directory
+- **CI/CD Templates**: GitHub Actions workflows are pre-configured in `.github/workflows/`
+
+**Note**: All platform standards and shared resources are automatically distributed and kept up-to-date by the Muppet Platform's steering management system.

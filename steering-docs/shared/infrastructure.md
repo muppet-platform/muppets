@@ -4,6 +4,8 @@
 
 This document outlines the core infrastructure design principles that all muppets and platform components must follow. These principles ensure consistency, maintainability, and vendor independence across the entire platform.
 
+**Note**: This document is for **muppet developers** building applications using the platform. For **platform developers** working on the platform migration and internal processes, see the [OpenTofu Migration Guidelines](../../../.kiro/steering/opentofu-migration.md) in the workspace steering docs.
+
 ## Core Principles
 
 ### 1. OpenTofu Over Terraform
@@ -116,6 +118,36 @@ module "fargate_service" {
 - Graceful degradation under load
 - Disaster recovery procedures
 
+### 8. CI/CD-Only Deployments
+
+**MANDATORY**: All production deployments MUST go through CI/CD pipelines. No direct deployments from developer machines.
+
+**Rationale:**
+- **Security**: Prevents unauthorized deployments and ensures proper access controls
+- **Auditability**: All deployments are logged and traceable through CI/CD systems
+- **Consistency**: Ensures identical deployment process across all environments
+- **Quality Gates**: Enforces testing, security scanning, and approval workflows
+- **Rollback Capability**: CI/CD systems provide standardized rollback mechanisms
+
+**Implementation Requirements:**
+- **GitHub Actions**: Primary CI/CD system for all muppet deployments
+- **Environment Protection**: Production deployments require approval
+- **Secrets Management**: All credentials managed through GitHub Secrets
+- **Infrastructure as Code**: OpenTofu configurations deployed through pipelines
+
+**Development vs Production:**
+- **Local Development**: Use `make run` for local testing with Docker/LocalStack
+- **Infrastructure Testing**: Temporary deployment scripts allowed ONLY for:
+  - Platform development and testing
+  - Infrastructure module validation
+  - Emergency debugging (with proper approval)
+
+**Enforcement:**
+- Template validation should reject direct deployment scripts in production templates
+- Code reviews must flag any direct deployment mechanisms
+- Platform documentation should emphasize CI/CD-only approach
+- Training materials should cover proper deployment workflows
+
 ## Validation and Enforcement
 
 ### Code Review Requirements
@@ -126,6 +158,7 @@ All infrastructure changes must be reviewed for:
 - ✅ Implements security best practices
 - ✅ Includes monitoring and alerting
 - ✅ Follows cost optimization guidelines
+- ✅ Uses CI/CD-only deployment approach
 
 ### Automated Validation
 

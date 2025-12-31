@@ -107,7 +107,12 @@ The GitHub Manager component has been successfully implemented as part of task 7
 
 ### Example Usage
 
-A comprehensive example script (`platform/examples/github_manager_example.py`) demonstrates:
+The GitHub Manager functionality can be explored through:
+- **MCP Tools**: Interactive tools available through Kiro for repository operations
+- **Unit Tests**: Comprehensive test suite in `tests/test_github_manager.py` showing real usage patterns
+- **Integration Tests**: End-to-end workflows demonstrating complete repository lifecycle
+
+Key capabilities include:
 - Repository creation with full configuration
 - Template code deployment
 - Status management

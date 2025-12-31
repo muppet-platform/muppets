@@ -1,26 +1,23 @@
+---
+inclusion: always
+---
+
 # Muppet Platform Product Overview
 
-The Muppet Platform is an internal developer platform that enables rapid creation and management of backend applications ("muppets") through a standardized Java Micronaut template.
+Internal developer platform for rapid Java Micronaut backend creation and management.
 
 ## Core Purpose
-
-- **Standardized Template**: Pre-configured Java Micronaut application template with Amazon Corretto 21 LTS
-- **AWS Fargate Deployment**: Serverless container management with automatic scaling
-- **Centralized Infrastructure**: Shared OpenTofu modules for consistent infrastructure patterns
-- **GitHub Integration**: Automatic repository creation, CI/CD setup, and branch protection
-- **Kiro Integration**: MCP tools for seamless developer experience
+- **Standardized Template**: Java Micronaut with Amazon Corretto 21 LTS
+- **AWS Fargate Deployment**: Serverless container management
+- **Shared Infrastructure**: OpenTofu modules for consistency
+- **GitHub Integration**: Automated repository and CI/CD setup
+- **Kiro Integration**: MCP tools for seamless development
 
 ## Key Components
-
-- **Platform Service**: Core orchestration service managing muppet lifecycle
-- **Java Micronaut Template**: Production-ready application template with best practices
-- **OpenTofu Modules**: Shared infrastructure components (ECR, Fargate, networking, monitoring)
-- **Steering Docs**: Centralized development guidelines and best practices
+- **Platform Service**: Core orchestration (Python FastAPI)
+- **Java Template**: Production-ready Micronaut application
+- **OpenTofu Modules**: Shared infrastructure (ECR, Fargate, monitoring)
+- **Steering Docs**: Centralized development guidelines
 
 ## Target Users
-
-Internal development teams who need to quickly spin up new Java-based backend services with consistent infrastructure, monitoring, and deployment patterns.
-
-## Architecture Philosophy
-
-Modular design with clear separation of concerns, enabling parallel development across teams while maintaining consistency across all generated Java Micronaut applications. The platform focuses on providing a single, well-tested, production-ready template rather than multiple template options.
+Internal development teams needing consistent Java backend services with standardized infrastructure and deployment patterns.

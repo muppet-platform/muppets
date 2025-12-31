@@ -1,48 +1,44 @@
+---
+inclusion: always
+---
+
 # Java Version Requirements
 
-## Java Distribution and Version
+## Mandatory: Amazon Corretto 21 (LTS)
 
-All Java-based components in the Muppet Platform must use **Amazon Corretto 21 (LTS)**.
+All Java components MUST use **Amazon Corretto 21 LTS**.
 
-### Critical: Use LTS Versions Only
+### LTS Only Policy
+- ✅ **Java 21 LTS** (September 2023) - USE THIS
+- ❌ **Java 22, 23, 24, 25** - Non-LTS versions prohibited
+- ⚠️ **Java 17 LTS** - Legacy systems only
 
-**IMPORTANT**: Always use Long-Term Support (LTS) versions of Java. Do NOT use non-LTS or bleeding-edge versions (e.g., Java 22, 23, 24, 25) as they:
-- Lack ecosystem support (Gradle plugins, Micronaut, libraries)
-- Have compatibility issues with build tools
-- Are not production-ready
-- Receive limited support and updates
+### Why Java 21 LTS?
+- Extended support until September 2031
+- Full ecosystem compatibility (Gradle, Micronaut, libraries)
+- Performance improvements over Java 17
+- Modern features: virtual threads, pattern matching, records
+- AWS optimization and regular security patches
 
-**Java LTS Release Schedule:**
-- Java 21 (LTS) - September 2023 - **USE THIS**
-- Java 17 (LTS) - September 2021 - Acceptable for legacy systems
-- Java 11 (LTS) - September 2018 - End of life approaching
-- Next LTS: Java 25 (LTS) - Expected September 2025
-
-### Why Amazon Corretto 21 (LTS)?
-
-- **Long-term Support (LTS)**: Extended support until at least September 2031
-- **Ecosystem Compatibility**: Full support from Gradle, Micronaut, and all major libraries
-- **Performance Improvements**: Significant performance enhancements over Java 17
-- **Modern Language Features**: Virtual threads, pattern matching, records, sealed classes
-- **AWS Optimization**: Amazon Corretto is optimized for AWS workloads
-- **Security**: Regular security patches and updates throughout LTS lifecycle
-- **Stability**: Production-tested and battle-hardened
-
-### Implementation Requirements
-
-#### 1. Template Updates
-When updating the Java Micronaut template:
-- Update `template.yaml` to specify Java 21
-- Update Dockerfile to use `amazoncorretto:21-alpine`
-- Update GitHub Actions to use Java 21
-- Update Gradle configuration for Java 21 compatibility
-
-#### 2. Build Configuration
+### Implementation
 ```gradle
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
+```
+
+```dockerfile
+FROM amazoncorretto:21-alpine
+```
+
+### Installation
+```bash
+# macOS
+brew install --cask corretto@21
+
+# Verify
+java -version  # Should show "21.x.x" and "LTS"
 ```
 
 #### 3. Docker Configuration
