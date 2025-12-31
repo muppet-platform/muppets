@@ -36,55 +36,112 @@ make ci-full    # Runs exactly what GitHub Actions runs
 - ❌ **DO NOT push**
 - ❌ **DO NOT create PR**
 
+### Step 1.5: GitHub CI/CD Status Check (MANDATORY AFTER PUSH)
+
+After pushing commits, you MUST monitor GitHub Actions status:
+
+```bash
+# Check GitHub Actions status for recent commits
+gh run list --limit 5 --json status,conclusion,workflowName,createdAt,url
+
+# Watch specific workflow run in real-time
+gh run watch <run-id>
+
+# View logs for failed runs
+gh run view <run-id> --log-failed
+```
+
+**GitHub Actions Monitoring Requirements:**
+- ✅ **Monitor all workflows**: CI, CD, Security, Nightly
+- ✅ **Check within 10 minutes** of pushing
+- ✅ **Investigate ALL failures** immediately
+- ✅ **No ignoring failed workflows** - every failure must be analyzed
+
+**If ANY GitHub Actions workflow fails:**
+- 🚨 **IMMEDIATE ACTION REQUIRED**
+- 🚨 **DO NOT push additional commits** until failures are resolved
+- 🚨 **DO NOT merge PRs** with failing workflows
+- 🚨 **MUST perform failure analysis** (Step 2)
+
 ### Step 2: Test Failure Analysis (MANDATORY)
 
-When tests fail, you MUST provide detailed analysis before making any fixes:
+When tests fail locally OR GitHub Actions workflows fail, you MUST provide detailed analysis before making any fixes:
 
 **Required Analysis Format:**
 ```
-## Test Failure Analysis
+## Test/Workflow Failure Analysis
 
-### Failed Tests:
-- [List each failing test with exact error message]
+### Failed Tests/Workflows:
+- [List each failing test/workflow with exact error message]
+- [Include GitHub Actions run URLs for workflow failures]
 
 ### Root Cause Analysis:
-- [Detailed explanation of WHY each test failed]
+- [Detailed explanation of WHY each test/workflow failed]
 - [What code change caused the failure]
-- [What the test was expecting vs what it got]
+- [What the test/workflow was expecting vs what it got]
+- [Environment differences between local and GitHub Actions if applicable]
 
 ### Impact Assessment:
 - [What functionality is broken]
 - [What other components might be affected]
 - [Risk level: Critical/High/Medium/Low]
+- [Production impact if this reaches main branch]
+
+### GitHub Actions Specific Analysis (if applicable):
+- [Workflow name and run ID]
+- [Job that failed and step that failed]
+- [Environment differences (OS, dependencies, secrets)]
+- [Timing issues or resource constraints]
+- [Integration failures with external services]
 
 ### Proposed Fix Strategy:
 - [Specific approach to fix each failure]
 - [Why this approach is correct]
 - [What changes will be made]
+- [How to prevent similar failures in the future]
 ```
 
-**Example:**
-```
-## Test Failure Analysis
+**GitHub Actions Failure Analysis Requirements:**
+- 📊 **Download and review full logs** from failed workflows
+- 🔍 **Compare local vs GitHub Actions environment** differences
+- 🕐 **Check for timing/race conditions** in integration tests
+- 🔑 **Verify secrets and environment variables** are properly configured
+- 🌐 **Validate external service dependencies** (AWS, GitHub API)
+- 📈 **Review resource usage** (memory, CPU, disk space)
 
-### Failed Tests:
-- test_muppet_creation_completeness: AssertionError: Expected 'success': True, got 'success': False
-- test_mcp_tool_discovery: Missing MCP tools: {'create_muppet'}
+**Example GitHub Actions Failure Analysis:**
+```
+## Test/Workflow Failure Analysis
+
+### Failed Tests/Workflows:
+- CI Workflow (Run #123): https://github.com/muppet-platform/muppets/actions/runs/123
+- Job "Platform Tests" failed at step "Run MCP validation tests"
+- Error: "ImportError: cannot import name 'get_available_tools'"
 
 ### Root Cause Analysis:
-- The muppet creation endpoint is returning failure status due to missing GitHub token validation
-- MCP tool registration is failing because the create_muppet tool isn't being loaded properly
-- Recent changes to authentication middleware are rejecting requests without proper token format
+- GitHub Actions is using a different Python path resolution than local environment
+- The test script is trying to import a function that was recently renamed
+- Local tests pass because of cached imports, but fresh GitHub environment fails
+- This indicates our local testing doesn't fully replicate the GitHub Actions environment
 
 ### Impact Assessment:
-- Critical: Core muppet creation functionality is broken
-- High: MCP integration is non-functional
-- Affects: All muppet lifecycle operations, platform API, MCP tools
+- Critical: CI pipeline is broken, blocking all merges
+- High: MCP functionality validation is not working in CI
+- Affects: All pull requests, deployment pipeline, code quality gates
+
+### GitHub Actions Specific Analysis:
+- Workflow: CI (run ID: 123)
+- Failed job: Platform Tests
+- Failed step: Run MCP validation tests
+- Environment: ubuntu-latest with Python 3.10
+- No environment differences in dependencies
+- Issue is code-related, not infrastructure-related
 
 ### Proposed Fix Strategy:
-- Fix authentication middleware to handle test tokens properly
-- Update MCP tool registration to ensure all tools are loaded at startup
-- Add proper error handling for missing dependencies
+- Update test script to use correct import path
+- Add import validation to local test suite
+- Verify all imports work in clean Python environment
+- Add pre-commit hook to catch import errors
 ```
 
 ### Step 3: Critical Code Review (MANDATORY)
@@ -173,14 +230,35 @@ These changes address [root causes] and will [expected outcomes].
 **May I proceed with implementing these changes?**
 ```
 
+**For GitHub Actions Failures:**
+```
+GitHub Actions Analysis Summary:
+- Workflow: [workflow name]
+- Run ID: [GitHub Actions run ID and URL]
+- Root cause: [specific technical cause]
+- Proposed fix: [detailed fix strategy]
+
+Local tests: [PASS/FAIL status]
+Impact: [production impact assessment]
+
+**May I proceed with implementing the fix for this GitHub Actions failure?**
+```
+
 ### Step 5: Iterative Process (MANDATORY)
 
 If changes are approved:
 
 1. **Implement the approved changes**
 2. **Return to Step 1** - Run complete test suite again
-3. **Repeat the entire process** until all tests pass
-4. **Only then commit and push**
+3. **Push changes and monitor GitHub Actions** (Step 1.5)
+4. **Repeat the entire process** until all tests pass AND all GitHub Actions workflows pass
+5. **Only then consider the work complete**
+
+**GitHub Actions Monitoring Loop:**
+- After each push, immediately check GitHub Actions status
+- If any workflow fails, return to Step 2 for failure analysis
+- Do not proceed with additional work until ALL workflows are green
+- Verify all 4 workflows pass: CI, CD, Security, Nightly (if applicable)
 
 ## Enforcement Rules
 
@@ -191,6 +269,8 @@ If changes are approved:
 3. **No changes without review** - Critical review is mandatory
 4. **No implementation without permission** - User approval required
 5. **Complete iteration** - Process must be followed to completion
+6. **GitHub Actions monitoring** - All workflows must pass after push
+7. **Immediate failure response** - GitHub Actions failures require immediate analysis
 
 ### Violation Consequences
 
@@ -199,6 +279,7 @@ If changes are approved:
 - ❌ PRs will be blocked
 - ❌ Code quality will be compromised
 - ❌ Platform stability will be at risk
+- ❌ Production deployments will be blocked
 
 ### Quality Gates
 
@@ -208,6 +289,12 @@ If changes are approved:
 - ✅ Critical code review completed
 - ✅ User permission granted for changes
 - ✅ Iterative process completed
+
+**All of these must be true after any push:**
+- ✅ All GitHub Actions workflows pass (CI, CD, Security, Nightly)
+- ✅ No failing workflow runs in the last 24 hours
+- ✅ All integration tests pass in GitHub Actions environment
+- ✅ Security scans complete without critical issues
 
 ## Local Development Commands
 
@@ -228,6 +315,28 @@ make stop           # Stop development environment
 make clean          # Clean containers and volumes
 ```
 
+### GitHub Actions Commands
+```bash
+# Install GitHub CLI (if not already installed)
+# macOS: brew install gh
+# Login: gh auth login
+
+# Check recent workflow runs
+gh run list --limit 10
+
+# Watch a specific run in real-time
+gh run watch <run-id>
+
+# View logs for failed runs
+gh run view <run-id> --log-failed
+
+# Re-run failed workflows
+gh run rerun <run-id>
+
+# Check workflow status for current branch
+gh run list --branch $(git branch --show-current) --limit 5
+```
+
 ### Test Environment Setup
 ```bash
 # First time setup
@@ -240,6 +349,10 @@ make run
 # Verify environment
 curl http://localhost:8000/health
 curl http://localhost:4566/_localstack/health
+
+# Verify GitHub CLI is working
+gh auth status
+gh repo view --json name,url
 ```
 
 ## Integration with CI/CD
@@ -249,6 +362,17 @@ This local workflow mirrors exactly what GitHub Actions runs:
 - **Local**: `make ci-full` 
 - **GitHub Actions**: Same commands in `ci.yml`
 - **No surprises**: If it passes locally, it passes in CI
+
+**GitHub Actions Workflow Monitoring:**
+- **CI Workflow**: Runs on every push and PR - monitors code quality, tests, security
+- **CD Workflow**: Runs on main branch - handles deployments
+- **Security Workflow**: Runs weekly - comprehensive security scanning
+- **Nightly Workflow**: Runs daily - extended testing and maintenance
+
+**Workflow Dependencies:**
+- CD workflow requires CI workflow to pass
+- Security failures block deployments
+- All workflows must pass for production releases
 
 ## Quality Metrics
 
@@ -288,28 +412,67 @@ git commit -m "feat: add muppet validation endpoint"
 git push
 ```
 
-### Example 2: Test Failure Workflow
+### Example 2: GitHub Actions Failure Workflow
 ```bash
-# Step 1: Run tests
+# Step 1: Run tests locally
 make ci-full
-# ❌ 3 tests fail
+# ✅ All tests pass locally
 
-# Step 2: Analyze failures
-# [Provide detailed analysis of each failure]
+# Push changes
+git push
+
+# Step 1.5: Monitor GitHub Actions
+gh run list --limit 5
+# ❌ CI workflow failed
+
+# Step 2: Analyze GitHub Actions failure
+gh run view <run-id> --log-failed
+# [Provide detailed analysis of GitHub Actions failure]
 
 # Step 3: Review code
-# [Perform critical code review]
+# [Perform critical code review focusing on environment differences]
 
 # Step 4: Get permission
-# "I found the root cause and have a fix strategy. May I implement these changes?"
+# "GitHub Actions failed due to environment difference. I found the root cause and have a fix strategy. May I implement these changes?"
 # User: "Yes, proceed"
 
 # Step 5: Implement fixes and repeat
 # [Make approved changes]
 make ci-full
+# ✅ All tests pass locally
+
+git push
+gh run watch <new-run-id>
+# ✅ All GitHub Actions workflows pass
+
+# Get final confirmation that all workflows are green
+```
+
+### Example 3: Successful Workflow with GitHub Actions
+```bash
+# Step 1: Run tests
+make ci-full
 # ✅ All tests pass
 
-# Get final permission and commit
+# Step 2: No failures to analyze
+
+# Step 3: Review changes
+# [Perform critical code review]
+
+# Step 4: Get permission
+# "All tests pass and code review is clean. May I commit these changes?"
+# User: "Yes, approved"
+
+# Step 5: Commit and monitor
+git add .
+git commit -m "feat: add new feature"
+git push
+
+# Step 1.5: Monitor GitHub Actions
+gh run watch
+# ✅ All workflows pass
+
+# Work is complete
 ```
 
 ## Conclusion
@@ -320,5 +483,7 @@ This workflow ensures:
 - **Critical thinking** through mandatory review
 - **User control** through required permissions
 - **Continuous improvement** through iterative process
+- **Production stability** through GitHub Actions monitoring
+- **Immediate issue resolution** through mandatory failure analysis
 
-**Remember: Quality is not negotiable. This process protects the platform's integrity and ensures reliable, maintainable code.**
+**Remember: Quality is not negotiable. This process protects the platform's integrity and ensures reliable, maintainable code. GitHub Actions failures are treated with the same severity as local test failures - both require immediate analysis and resolution.**
