@@ -33,37 +33,71 @@ class TestMuppetLifecycleTLSIntegration:
     @pytest.fixture
     def lifecycle_service(self, mock_tls_generator):
         """Create lifecycle service with mocked TLS generator."""
-        with patch.multiple(
-            "src.services.muppet_lifecycle_service",
-            TemplateManager=Mock,
-            GitHubManager=Mock,
-            InfrastructureManager=Mock,
-            DeploymentService=Mock,
-            SteeringManager=Mock,
-            get_state_manager=Mock,
-            GitHubClient=Mock,
-            get_settings=Mock,
+        # Create mock instances that can be used as constructor arguments
+        mock_github_client = Mock()
+        mock_steering_manager = Mock()
+        mock_state_manager = Mock()
+
+        with (
+            patch.multiple(
+                "src.services.muppet_lifecycle_service",
+                TemplateManager=Mock,
+                GitHubManager=Mock,
+                InfrastructureManager=Mock,
+                DeploymentService=Mock,
+                get_state_manager=Mock(return_value=mock_state_manager),
+                get_settings=Mock,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.GitHubClient",
+                return_value=mock_github_client,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.SteeringManager",
+                return_value=mock_steering_manager,
+            ),
         ):
-            return MuppetLifecycleService(tls_generator=mock_tls_generator)
+            service = MuppetLifecycleService(tls_generator=mock_tls_generator)
+            # Manually set the state manager for test access
+            service.state_manager = mock_state_manager
+            return service
 
     def test_initialization_with_tls_generator(self, mock_tls_generator):
         """Test lifecycle service initialization with TLS generator."""
-        with patch.multiple(
-            "src.services.muppet_lifecycle_service",
-            TemplateManager=Mock,
-            GitHubManager=Mock,
-            InfrastructureManager=Mock,
-            DeploymentService=Mock,
-            SteeringManager=Mock,
-            get_state_manager=Mock,
-            GitHubClient=Mock,
-            get_settings=Mock,
+        # Create mock instances that can be used as constructor arguments
+        mock_github_client = Mock()
+        mock_steering_manager = Mock()
+        mock_state_manager = Mock()
+
+        with (
+            patch.multiple(
+                "src.services.muppet_lifecycle_service",
+                TemplateManager=Mock,
+                GitHubManager=Mock,
+                InfrastructureManager=Mock,
+                DeploymentService=Mock,
+                get_state_manager=Mock(return_value=mock_state_manager),
+                get_settings=Mock,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.GitHubClient",
+                return_value=mock_github_client,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.SteeringManager",
+                return_value=mock_steering_manager,
+            ),
         ):
             service = MuppetLifecycleService(tls_generator=mock_tls_generator)
             assert service.tls_generator is mock_tls_generator
 
     def test_initialization_with_default_tls_generator(self):
         """Test lifecycle service initialization with default TLS generator."""
+        # Create mock instances that can be used as constructor arguments
+        mock_github_client = Mock()
+        mock_steering_manager = Mock()
+        mock_state_manager = Mock()
+
         with (
             patch(
                 "src.services.muppet_lifecycle_service.TLSAutoGenerator"
@@ -74,10 +108,16 @@ class TestMuppetLifecycleTLSIntegration:
                 GitHubManager=Mock,
                 InfrastructureManager=Mock,
                 DeploymentService=Mock,
-                SteeringManager=Mock,
-                get_state_manager=Mock,
-                GitHubClient=Mock,
+                get_state_manager=Mock(return_value=mock_state_manager),
                 get_settings=Mock,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.GitHubClient",
+                return_value=mock_github_client,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.SteeringManager",
+                return_value=mock_steering_manager,
             ),
         ):
             service = MuppetLifecycleService()
@@ -242,18 +282,34 @@ class TestMuppetLifecycleTLSErrors:
     @pytest.fixture
     def lifecycle_service_with_failing_tls(self, mock_failing_tls_generator):
         """Create lifecycle service with failing TLS generator."""
-        with patch.multiple(
-            "src.services.muppet_lifecycle_service",
-            TemplateManager=Mock,
-            GitHubManager=Mock,
-            InfrastructureManager=Mock,
-            DeploymentService=Mock,
-            SteeringManager=Mock,
-            get_state_manager=Mock,
-            GitHubClient=Mock,
-            get_settings=Mock,
+        # Create mock instances that can be used as constructor arguments
+        mock_github_client = Mock()
+        mock_steering_manager = Mock()
+        mock_state_manager = Mock()
+
+        with (
+            patch.multiple(
+                "src.services.muppet_lifecycle_service",
+                TemplateManager=Mock,
+                GitHubManager=Mock,
+                InfrastructureManager=Mock,
+                DeploymentService=Mock,
+                get_state_manager=Mock(return_value=mock_state_manager),
+                get_settings=Mock,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.GitHubClient",
+                return_value=mock_github_client,
+            ),
+            patch(
+                "src.services.muppet_lifecycle_service.SteeringManager",
+                return_value=mock_steering_manager,
+            ),
         ):
-            return MuppetLifecycleService(tls_generator=mock_failing_tls_generator)
+            service = MuppetLifecycleService(tls_generator=mock_failing_tls_generator)
+            # Manually set the state manager for test access
+            service.state_manager = mock_state_manager
+            return service
 
     @pytest.mark.asyncio
     async def test_migrate_muppet_tls_generation_failure(
