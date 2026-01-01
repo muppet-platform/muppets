@@ -1,222 +1,57 @@
 # {{muppet_name}} - Node.js Express Infrastructure Outputs
+# All outputs come from the shared muppet-node-express module
 
-# Service information
-output "service_name" {
-  description = "Name of the ECS service"
-  value       = module.fargate_service.service_name
-}
-
-output "service_arn" {
-  description = "ARN of the ECS service"
-  value       = module.fargate_service.service_arn
-}
-
-output "cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = module.fargate_service.cluster_name
-}
-
-output "cluster_arn" {
-  description = "ARN of the ECS cluster"
-  value       = module.fargate_service.cluster_arn
-}
-
-# Container and ECR information
-output "ecr_repository_url" {
-  description = "URL of the ECR repository"
-  value       = module.ecr.repository_url
-}
-
-output "ecr_repository_arn" {
-  description = "ARN of the ECR repository"
-  value       = module.ecr.repository_arn
-}
-
-output "container_image" {
-  description = "Full container image URL with tag"
-  value       = "${module.ecr.repository_url}:${var.image_tag}"
-}
-
-# Networking information
-output "vpc_id" {
-  description = "ID of the VPC"
-  value       = module.networking.vpc_id
-}
-
-output "vpc_cidr" {
-  description = "CIDR block of the VPC"
-  value       = module.networking.vpc_cidr
-}
-
-output "public_subnet_ids" {
-  description = "IDs of the public subnets"
-  value       = module.networking.public_subnet_ids
-}
-
-output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = module.networking.private_subnet_ids
-}
-
-output "security_group_id" {
-  description = "ID of the security group"
-  value       = module.networking.security_group_id
-}
-
-# Load balancer information
-output "load_balancer_arn" {
-  description = "ARN of the Application Load Balancer"
-  value       = module.networking.load_balancer_arn
-}
-
-output "load_balancer_dns_name" {
-  description = "DNS name of the Application Load Balancer"
-  value       = module.networking.load_balancer_dns_name
-}
-
-output "load_balancer_zone_id" {
-  description = "Zone ID of the Application Load Balancer"
-  value       = module.networking.load_balancer_zone_id
-}
-
-output "target_group_arn" {
-  description = "ARN of the target group"
-  value       = module.networking.target_group_arn
-}
-
-# TLS/SSL information
-output "certificate_arn" {
-  description = "ARN of the TLS certificate"
-  value       = module.tls.certificate_arn
-}
-
-output "certificate_domain_name" {
-  description = "Domain name of the TLS certificate"
-  value       = module.tls.certificate_domain_name
-}
-
-output "certificate_status" {
-  description = "Status of the TLS certificate"
-  value       = module.tls.certificate_status
-}
-
-# DNS information
-output "domain_name" {
-  description = "Domain name for the service"
-  value       = var.domain_name
-}
-
+# Service URLs (for CD workflow)
 output "service_url" {
-  description = "HTTPS URL of the service"
-  value       = "https://${var.domain_name}"
+  description = "URL to access the service"
+  value       = module.muppet.service_url
 }
 
 output "health_check_url" {
   description = "Health check endpoint URL"
-  value       = "https://${var.domain_name}/health"
+  value       = module.muppet.health_check_url
 }
 
 output "api_base_url" {
   description = "Base URL for API endpoints"
-  value       = "https://${var.domain_name}/api/v1"
+  value       = module.muppet.api_base_url
 }
 
-# Monitoring information
-output "log_group_name" {
-  description = "Name of the CloudWatch log group"
-  value       = module.monitoring.log_group_name
+# Service information (for CD workflow)
+output "service_name" {
+  description = "Name of the ECS service"
+  value       = module.muppet.ecs_service_name
 }
 
-output "log_group_arn" {
-  description = "ARN of the CloudWatch log group"
-  value       = module.monitoring.log_group_arn
+output "cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = module.muppet.ecs_cluster_name
 }
 
-output "cloudwatch_dashboard_url" {
-  description = "URL to the CloudWatch dashboard"
-  value       = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${var.muppet_name}-${var.environment}"
+# Load balancer information (for CD workflow)
+output "load_balancer_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.muppet.alb_dns_name
 }
 
-# Auto-scaling information
-output "autoscaling_target_arn" {
-  description = "ARN of the auto-scaling target"
-  value       = module.fargate_service.autoscaling_target_arn
+output "load_balancer_zone_id" {
+  description = "Zone ID of the Application Load Balancer"
+  value       = module.muppet.alb_zone_id
 }
 
-output "autoscaling_policy_arns" {
-  description = "ARNs of the auto-scaling policies"
-  value       = module.fargate_service.autoscaling_policy_arns
+# Container information (for CD workflow)
+output "ecr_repository_url" {
+  description = "URL of the ECR repository"
+  value       = module.muppet.ecr_repository_url
 }
 
-# Service discovery information (if enabled)
-output "service_discovery_service_arn" {
-  description = "ARN of the service discovery service"
-  value       = var.enable_service_discovery ? module.fargate_service.service_discovery_service_arn : null
+output "container_image" {
+  description = "Full container image URL with tag"
+  value       = "${module.muppet.ecr_repository_url}:${var.image_tag}"
 }
 
-output "service_discovery_namespace" {
-  description = "Service discovery namespace"
-  value       = var.enable_service_discovery ? var.service_discovery_namespace : null
-}
-
-# Resource configuration summary
-output "resource_summary" {
-  description = "Summary of deployed resources"
-  value = {
-    service_name    = module.fargate_service.service_name
-    environment     = var.environment
-    language        = "nodejs"
-    framework       = "express"
-    cpu             = var.cpu
-    memory          = var.memory
-    min_capacity    = var.min_capacity
-    max_capacity    = var.max_capacity
-    domain_name     = var.domain_name
-    service_url     = "https://${var.domain_name}"
-    health_check    = "https://${var.domain_name}/health"
-    api_base_url    = "https://${var.domain_name}/api/v1"
-    log_group       = module.monitoring.log_group_name
-    ecr_repository  = module.ecr.repository_url
-  }
-}
-
-# Deployment information
+# Complete deployment information (for CD workflow)
 output "deployment_info" {
-  description = "Information needed for deployment"
-  value = {
-    ecr_repository_url = module.ecr.repository_url
-    service_name       = module.fargate_service.service_name
-    cluster_name       = module.fargate_service.cluster_name
-    task_definition    = module.fargate_service.task_definition_arn
-    container_name     = "{{muppet_name}}"
-    container_port     = 3000
-  }
-}
-
-# Environment-specific outputs
-output "environment_config" {
-  description = "Environment-specific configuration"
-  value = {
-    environment     = var.environment
-    aws_region      = var.aws_region
-    node_env        = var.node_env
-    log_level       = var.log_level
-    log_retention   = var.log_retention_days
-    vpc_cidr        = var.vpc_cidr
-    availability_zones = var.availability_zones
-  }
-}
-
-# Quick access URLs for development and monitoring
-output "quick_links" {
-  description = "Quick access links for the service"
-  value = {
-    service_url       = "https://${var.domain_name}"
-    health_check      = "https://${var.domain_name}/health"
-    api_docs          = "https://${var.domain_name}/api/v1"
-    cloudwatch_logs   = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#logsV2:log-groups/log-group/${replace(module.monitoring.log_group_name, "/", "$252F")}"
-    ecs_service       = "https://${var.aws_region}.console.aws.amazon.com/ecs/home?region=${var.aws_region}#/clusters/${module.fargate_service.cluster_name}/services/${module.fargate_service.service_name}/details"
-    load_balancer     = "https://${var.aws_region}.console.aws.amazon.com/ec2/v2/home?region=${var.aws_region}#LoadBalancers:search=${module.networking.load_balancer_arn}"
-    ecr_repository    = "https://${var.aws_region}.console.aws.amazon.com/ecr/repositories/private/${data.aws_caller_identity.current.account_id}/${var.muppet_name}?region=${var.aws_region}"
-  }
+  description = "Complete deployment information for CI/CD"
+  value       = module.muppet.deployment_info
 }

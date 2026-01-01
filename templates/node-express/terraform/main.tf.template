@@ -1,395 +1,46 @@
 # {{muppet_name}} - Node.js Express Infrastructure
-# This file defines the complete infrastructure for the {{muppet_name}} microservice
-# using the Muppet Platform's shared modules for consistency and best practices.
+# This file uses the shared muppet-node-express module for maximum resource reuse
 
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
-  
   backend "s3" {
-    # Backend configuration will be provided during deployment
-    # bucket = "muppet-platform-terraform-state"
-    # key    = "muppets/{{muppet_name}}/terraform.tfstate"
-    # region = "{{aws_region}}"
+    bucket = "muppet-platform-terraform-state"
+    key    = "muppets/{{muppet_name}}/terraform.tfstate"
+    region = "{{aws_region}}"
+    dynamodb_table = "muppet-platform-terraform-locks"
+    encrypt        = true
   }
 }
 
 provider "aws" {
-  region = var.aws_region
-  
-  default_tags {
-    tags = {
-      Project     = "muppet-platform"
-      Service     = "{{muppet_name}}"
-      Environment = var.environment
-      Language    = "nodejs"
-      Framework   = "express"
-      ManagedBy   = "terraform"
-    }
-  }
+  region = "{{aws_region}}"
 }
 
-# Data sources
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
-# Local values for consistent naming and configuration
-locals {
-  name_prefix = "{{muppet_name}}-${var.environment}"
+# Use the shared Node.js Express muppet module
+module "muppet" {
+  source = "../../terraform-modules/muppet-node-express"
   
-  # Node.js specific configuration
-  container_config = {
-    image_tag      = var.image_tag
-    container_port = 3000
-    cpu           = var.cpu
-    memory        = var.memory
-    
-    # Node.js optimized environment variables
-    environment_variables = {
-      NODE_ENV = var.environment
-      PORT     = "3000"
-      LOG_LEVEL = var.environment == "production" ? "info" : "debug"
-      AWS_REGION = var.aws_region
-    }
-    
-    # Health check configuration for Node.js Express
-    health_check = {
-      enabled             = true
-      healthy_threshold   = 2
-      unhealthy_threshold = 3
-      timeout             = 5
-      interval            = 30
-      path                = "/health"
-      matcher             = "200"
-      grace_period        = 60
-    }
-  }
-  
-  # Auto-scaling configuration optimized for Node.js
-  autoscaling_config = {
-    min_capacity = var.min_capacity
-    max_capacity = var.max_capacity
-    
-    # Node.js specific scaling metrics
-    target_cpu_utilization    = 70
-    target_memory_utilization = 80
-    scale_in_cooldown        = 300
-    scale_out_cooldown       = 60
-  }
-}
-
-# ECR Repository for container images
-module "ecr" {
-  source = "../../terraform-modules/ecr"
-  
-  repository_name = "{{muppet_name}}"
-  environment     = var.environment
-  
-  # Lifecycle policy for image management
-  lifecycle_policy = {
-    rules = [
-      {
-        rulePriority = 1
-        description  = "Keep last 10 production images"
-        selection = {
-          tagStatus     = "tagged"
-          tagPrefixList = ["prod"]
-          countType     = "imageCountMoreThan"
-          countNumber   = 10
-        }
-        action = {
-          type = "expire"
-        }
-      },
-      {
-        rulePriority = 2
-        description  = "Keep last 5 development images"
-        selection = {
-          tagStatus     = "tagged"
-          tagPrefixList = ["dev", "staging"]
-          countType     = "imageCountMoreThan"
-          countNumber   = 5
-        }
-        action = {
-          type = "expire"
-        }
-      }
-    ]
-  }
-}
-
-# Networking module - VPC, subnets, security groups
-module "networking" {
-  source = "../../terraform-modules/networking"
-  
-  name_prefix = local.name_prefix
+  # Basic configuration
+  muppet_name = var.muppet_name
   environment = var.environment
-  
-  # VPC configuration
-  vpc_cidr = var.vpc_cidr
-  
-  # Subnet configuration
-  availability_zones = var.availability_zones
-  public_subnet_cidrs = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  
-  # Security group rules for Node.js Express
-  ingress_rules = [
-    {
-      from_port   = 3000
-      to_port     = 3000
-      protocol    = "tcp"
-      cidr_blocks = [var.vpc_cidr]
-      description = "Node.js Express application port"
-    },
-    {
-      from_port   = 80
-      to_port     = 80
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-      description = "HTTP traffic from ALB"
-    },
-    {
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-      description = "HTTPS traffic from ALB"
-    }
-  ]
-  
-  egress_rules = [
-    {
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
-      cidr_blocks = ["0.0.0.0/0"]
-      description = "All outbound traffic"
-    }
-  ]
-}
-
-# TLS/SSL Certificate management
-module "tls" {
-  source = "../../terraform-modules/tls"
-  
-  domain_name = var.domain_name
-  environment = var.environment
-  
-  # Subject Alternative Names for additional domains
-  subject_alternative_names = var.subject_alternative_names
-  
-  # Route 53 zone for DNS validation
-  route53_zone_id = var.route53_zone_id
-}
-
-# ECS Fargate service for Node.js Express application
-module "fargate_service" {
-  source = "../../terraform-modules/fargate-service"
-  
-  # Service configuration
-  service_name = "{{muppet_name}}"
-  environment  = var.environment
+  aws_region  = var.aws_region
   
   # Container configuration
-  container_definitions = [
-    {
-      name  = "{{muppet_name}}"
-      image = "${module.ecr.repository_url}:${local.container_config.image_tag}"
-      
-      # Resource allocation optimized for Node.js
-      cpu    = local.container_config.cpu
-      memory = local.container_config.memory
-      
-      # Port mapping
-      portMappings = [
-        {
-          containerPort = local.container_config.container_port
-          protocol      = "tcp"
-        }
-      ]
-      
-      # Environment variables
-      environment = [
-        for key, value in local.container_config.environment_variables : {
-          name  = key
-          value = value
-        }
-      ]
-      
-      # Logging configuration
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/{{muppet_name}}"
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
-      
-      # Health check
-      healthCheck = {
-        command = [
-          "CMD-SHELL",
-          "curl -f http://localhost:${local.container_config.container_port}/health || exit 1"
-        ]
-        interval    = local.container_config.health_check.interval
-        timeout     = local.container_config.health_check.timeout
-        retries     = local.container_config.health_check.unhealthy_threshold
-        startPeriod = local.container_config.health_check.grace_period
-      }
-      
-      essential = true
-    }
-  ]
-  
-  # Networking
-  vpc_id              = module.networking.vpc_id
-  private_subnet_ids  = module.networking.private_subnet_ids
-  security_group_ids  = [module.networking.security_group_id]
-  
-  # Load balancer configuration
-  load_balancer = {
-    target_group_arn = module.networking.target_group_arn
-    container_name   = "{{muppet_name}}"
-    container_port   = local.container_config.container_port
-  }
+  image_tag = var.image_tag
+  cpu       = var.cpu
+  memory    = var.memory
   
   # Auto-scaling configuration
-  autoscaling = local.autoscaling_config
+  min_capacity = var.min_capacity
+  max_capacity = var.max_capacity
   
-  # Service discovery (optional)
-  enable_service_discovery = var.enable_service_discovery
-  service_discovery_namespace = var.service_discovery_namespace
-}
-
-# Monitoring and observability
-module "monitoring" {
-  source = "../../terraform-modules/monitoring"
-  
-  service_name = "{{muppet_name}}"
-  environment  = var.environment
-  
-  # CloudWatch Log Group
-  log_group_name = "/ecs/{{muppet_name}}"
-  log_retention_days = var.log_retention_days
-  
-  # CloudWatch Alarms for Node.js specific metrics
-  alarms = [
-    {
-      name               = "{{muppet_name}}-high-cpu"
-      description        = "High CPU utilization for {{muppet_name}}"
-      metric_name        = "CPUUtilization"
-      namespace          = "AWS/ECS"
-      statistic          = "Average"
-      period             = 300
-      evaluation_periods = 2
-      threshold          = 80
-      comparison_operator = "GreaterThanThreshold"
-      alarm_actions      = [var.sns_topic_arn]
-      
-      dimensions = {
-        ServiceName = "{{muppet_name}}"
-        ClusterName = module.fargate_service.cluster_name
-      }
-    },
-    {
-      name               = "{{muppet_name}}-high-memory"
-      description        = "High memory utilization for {{muppet_name}}"
-      metric_name        = "MemoryUtilization"
-      namespace          = "AWS/ECS"
-      statistic          = "Average"
-      period             = 300
-      evaluation_periods = 2
-      threshold          = 85
-      comparison_operator = "GreaterThanThreshold"
-      alarm_actions      = [var.sns_topic_arn]
-      
-      dimensions = {
-        ServiceName = "{{muppet_name}}"
-        ClusterName = module.fargate_service.cluster_name
-      }
-    },
-    {
-      name               = "{{muppet_name}}-response-time"
-      description        = "High response time for {{muppet_name}}"
-      metric_name        = "TargetResponseTime"
-      namespace          = "AWS/ApplicationELB"
-      statistic          = "Average"
-      period             = 300
-      evaluation_periods = 2
-      threshold          = 1000  # 1 second
-      comparison_operator = "GreaterThanThreshold"
-      alarm_actions      = [var.sns_topic_arn]
-      
-      dimensions = {
-        TargetGroup = module.networking.target_group_arn_suffix
-      }
-    },
-    {
-      name               = "{{muppet_name}}-error-rate"
-      description        = "High error rate for {{muppet_name}}"
-      metric_name        = "HTTPCode_Target_5XX_Count"
-      namespace          = "AWS/ApplicationELB"
-      statistic          = "Sum"
-      period             = 300
-      evaluation_periods = 2
-      threshold          = 10
-      comparison_operator = "GreaterThanThreshold"
-      alarm_actions      = [var.sns_topic_arn]
-      
-      dimensions = {
-        TargetGroup = module.networking.target_group_arn_suffix
-      }
-    }
-  ]
-  
-  # Custom metrics for Node.js application
-  custom_metrics = [
-    {
-      name      = "nodejs_heap_used_bytes"
-      namespace = "{{muppet_name}}/NodeJS"
-      unit      = "Bytes"
-    },
-    {
-      name      = "nodejs_heap_total_bytes"
-      namespace = "{{muppet_name}}/NodeJS"
-      unit      = "Bytes"
-    },
-    {
-      name      = "nodejs_external_memory_bytes"
-      namespace = "{{muppet_name}}/NodeJS"
-      unit      = "Bytes"
-    },
-    {
-      name      = "http_requests_total"
-      namespace = "{{muppet_name}}/HTTP"
-      unit      = "Count"
-    },
-    {
-      name      = "http_request_duration_seconds"
-      namespace = "{{muppet_name}}/HTTP"
-      unit      = "Seconds"
-    }
-  ]
-}
-
-# DNS and domain configuration
-resource "aws_route53_record" "main" {
-  count = var.create_dns_record ? 1 : 0
-  
-  zone_id = var.route53_zone_id
-  name    = var.domain_name
-  type    = "A"
-  
-  alias {
-    name                   = module.networking.load_balancer_dns_name
-    zone_id                = module.networking.load_balancer_zone_id
-    evaluate_target_health = true
-  }
+  # Cost management
+  cost_center  = "{{cost_center}}"
+  owner_email  = "{{owner_email}}"
 }
