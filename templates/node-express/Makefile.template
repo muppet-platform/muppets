@@ -1,0 +1,114 @@
+# Makefile for {{muppet_name}} (Node.js Express)
+
+.PHONY: help setup build test lint format clean run stop docker-build docker-run
+
+# Default target
+help:
+	@echo "{{muppet_name}} - Node.js Express Microservice"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  setup        - Initialize development environment"
+	@echo "  build        - Build the application"
+	@echo "  test         - Run tests with coverage"
+	@echo "  lint         - Run ESLint"
+	@echo "  format       - Format code with Prettier"
+	@echo "  clean        - Clean build artifacts"
+	@echo "  run          - Start development server"
+	@echo "  stop         - Stop development server"
+	@echo "  docker-build - Build Docker image"
+	@echo "  docker-run   - Run Docker container"
+	@echo ""
+	@echo "Node.js version: $(shell node -v 2>/dev/null || echo 'Not installed')"
+	@echo "npm version: $(shell npm -v 2>/dev/null || echo 'Not installed')"
+
+# Setup development environment
+setup:
+	@echo "🚀 Setting up {{muppet_name}} development environment..."
+	./scripts/init.sh
+
+# Build the application
+build:
+	@echo "🔨 Building {{muppet_name}}..."
+	./scripts/build.sh
+
+# Run tests
+test:
+	@echo "🧪 Running tests for {{muppet_name}}..."
+	./scripts/test.sh
+
+# Run linting
+lint:
+	@echo "🔍 Running ESLint..."
+	npm run lint
+
+# Format code
+format:
+	@echo "💅 Formatting code with Prettier..."
+	npm run format
+
+# Clean build artifacts
+clean:
+	@echo "🧹 Cleaning build artifacts..."
+	rm -rf dist/
+	rm -rf coverage/
+	rm -rf node_modules/.cache/
+	npm run clean
+
+# Start development server
+run:
+	@echo "🚀 Starting {{muppet_name}} development server..."
+	./scripts/run.sh --dev
+
+# Stop development server (if running in background)
+stop:
+	@echo "🛑 Stopping {{muppet_name}} development server..."
+	-pkill -f "{{muppet_name}}"
+	-docker stop {{muppet_name}}-dev 2>/dev/null || true
+
+# Build Docker image
+docker-build:
+	@echo "🐳 Building Docker image for {{muppet_name}}..."
+	docker build -t {{muppet_name}} .
+
+# Run Docker container
+docker-run: docker-build
+	@echo "🐳 Running {{muppet_name}} in Docker..."
+	docker run --rm -p 3000:3000 --name {{muppet_name}}-dev {{muppet_name}}
+
+# Development workflow targets
+dev-setup: setup
+	@echo "✅ Development environment ready!"
+	@echo "Run 'make run' to start the development server"
+
+dev-test: lint test
+	@echo "✅ All tests passed!"
+
+dev-build: clean build
+	@echo "✅ Build completed successfully!"
+
+# CI/CD targets (used by GitHub Actions)
+ci-install:
+	npm ci
+
+ci-test: ci-install lint test
+
+ci-build: ci-install build
+
+# Local development with Docker Compose
+compose-up:
+	@echo "🐳 Starting {{muppet_name}} with Docker Compose..."
+	docker-compose -f docker-compose.local.yml up --build
+
+compose-down:
+	@echo "🐳 Stopping {{muppet_name}} Docker Compose..."
+	docker-compose -f docker-compose.local.yml down
+
+# Health check
+health:
+	@echo "🔍 Checking {{muppet_name}} health..."
+	@curl -f http://localhost:3000/health || echo "❌ Health check failed"
+
+# Show logs
+logs:
+	@echo "📋 Showing {{muppet_name}} logs..."
+	@docker logs {{muppet_name}}-dev 2>/dev/null || echo "No Docker container running"

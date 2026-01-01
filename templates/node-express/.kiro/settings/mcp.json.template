@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "muppet-platform": {
+      "command": "python",
+      "args": ["-m", "uvicorn", "mcp_http_bridge:app", "--host", "0.0.0.0", "--port", "8001"],
+      "cwd": "../../../platform",
+      "env": {
+        "PYTHONPATH": "../../../platform",
+        "MUPPET_PLATFORM_BASE_URL": "http://localhost:8000",
+        "LOG_LEVEL": "INFO"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_muppets",
+        "get_muppet_status",
+        "get_muppet_logs",
+        "get_muppet_metrics"
+      ]
+    },
+    "nodejs-development": {
+      "command": "uvx",
+      "args": ["nodejs-mcp-server@latest"],
+      "env": {
+        "NODE_VERSION": "20",
+        "NPM_REGISTRY": "https://registry.npmjs.org/",
+        "TYPESCRIPT_VERSION": "5.3.3"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "check_node_version",
+        "install_dependencies",
+        "run_tests",
+        "build_project",
+        "lint_code"
+      ]
+    },
+    "aws-integration": {
+      "command": "uvx",
+      "args": ["aws-mcp-server@latest"],
+      "env": {
+        "AWS_REGION": "{{aws_region}}",
+        "AWS_PROFILE": "default"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "describe_ecs_service",
+        "get_cloudwatch_logs",
+        "list_ecr_images",
+        "get_service_health"
+      ]
+    }
+  }
+}

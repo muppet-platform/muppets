@@ -1609,11 +1609,21 @@ class GitHubClient:
                 "ci.yml": self._get_java_ci_workflow(),
                 "cd.yml": self._get_java_cd_workflow(),
             }
-        else:
-            # Default to Java Micronaut workflows for all templates
+        elif template == "node-express":
             return {
-                "ci.yml": self._get_java_ci_workflow(),
-                "cd.yml": self._get_java_cd_workflow(),
+                "ci.yml": self._get_nodejs_ci_workflow(),
+                "cd.yml": self._get_nodejs_cd_workflow(),
+            }
+        elif template == "python-fastapi":
+            return {
+                "ci.yml": self._get_python_ci_workflow(),
+                "cd.yml": self._get_python_cd_workflow(),
+            }
+        else:
+            # Generic workflows for unknown templates
+            return {
+                "ci.yml": self._get_generic_ci_workflow(),
+                "cd.yml": self._get_generic_cd_workflow(),
             }
 
     def _get_java_ci_workflow(self) -> str:
@@ -1768,7 +1778,125 @@ jobs:
         aws ecs update-service --cluster muppet-platform-cluster --service ${{ github.event.repository.name }} --force-new-deployment
 """
 
-    def _get_python_ci_workflow(self) -> str:
+    def _get_nodejs_ci_workflow(self) -> str:
+        """Get Node.js Express CI workflow."""
+        return """name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: Run TypeScript compiler check
+      run: npx tsc --noEmit
+
+    - name: Run tests with coverage
+      run: npm run test:coverage
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Build Docker image
+      run: docker build -t muppet-app .
+"""
+
+    def _get_nodejs_cd_workflow(self) -> str:
+        """Get Node.js Express CD workflow."""
+        return """name: CD
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: muppet-platform-registry
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service --cluster muppet-platform-cluster --service ${{ github.event.repository.name }} --force-new-deployment
+"""
         """Get Python FastAPI CI workflow."""
         return """name: CI
 

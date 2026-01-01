@@ -416,6 +416,21 @@ CMD ["java", \\
         self, template_metadata: TemplateMetadata, muppet_name: str
     ) -> str:
         """Generate initial business logic steering documentation."""
+        
+        # Generate language-specific content
+        if template_metadata.language == "java":
+            return self._generate_java_business_logic_steering(template_metadata, muppet_name)
+        elif template_metadata.language == "javascript":
+            return self._generate_nodejs_business_logic_steering(template_metadata, muppet_name)
+        elif template_metadata.language == "python":
+            return self._generate_python_business_logic_steering(template_metadata, muppet_name)
+        else:
+            return self._generate_generic_business_logic_steering(template_metadata, muppet_name)
+
+    def _generate_java_business_logic_steering(
+        self, template_metadata: TemplateMetadata, muppet_name: str
+    ) -> str:
+        """Generate Java-specific business logic steering documentation."""
         return f"""# Business Logic Guidelines for {muppet_name}
 
 This document contains muppet-specific development guidelines and patterns.
@@ -511,5 +526,313 @@ docker build -t {muppet_name} .
 
 - [Micronaut Documentation](https://docs.micronaut.io/)
 - [Amazon Corretto 21 Guide](https://docs.aws.amazon.com/corretto/latest/corretto-21-ug/)
+- [Platform Documentation](../../../docs/)
+"""
+
+    def _generate_nodejs_business_logic_steering(
+        self, template_metadata: TemplateMetadata, muppet_name: str
+    ) -> str:
+        """Generate Node.js-specific business logic steering documentation."""
+        return f"""# Business Logic Guidelines for {muppet_name}
+
+This document contains muppet-specific development guidelines and patterns.
+
+## Overview
+
+{muppet_name} is a {template_metadata.language} {template_metadata.framework} service that provides [describe your service's purpose here].
+
+## Architecture Patterns
+
+### Service Layer
+- Keep business logic in service classes
+- Use dependency injection for testability
+- Implement proper error handling and validation
+
+### Data Access
+- Use repository pattern for data access
+- Implement proper connection pooling
+- Consider caching for frequently accessed data
+
+### API Design
+- Follow RESTful principles
+- Use proper HTTP status codes (see shared/http-responses.md)
+- Implement proper request/response validation
+
+## Testing Strategy
+
+### Unit Tests
+- Aim for 70%+ test coverage (see shared/test-coverage.md)
+- Mock external dependencies with Jest
+- Test edge cases and error conditions
+
+### Integration Tests
+- Test API endpoints end-to-end
+- Use supertest for HTTP testing
+- Validate business workflows
+
+## Performance Considerations
+
+### Response Times
+- Target < 200ms for simple operations
+- Target < 1s for complex operations
+- Monitor and alert on performance degradation
+
+### Resource Usage
+- Monitor memory usage and optimize as needed
+- Use connection pooling for database connections
+- Implement proper caching strategies
+
+## Security Guidelines
+
+See shared/security.md for platform-wide security requirements.
+
+### Service-Specific Security
+- [Add any service-specific security requirements here]
+- Validate all input parameters
+- Implement proper authentication/authorization
+
+## Monitoring and Logging
+
+See shared/logging.md for logging standards.
+
+### Business Metrics
+- Track key business metrics
+- Implement health checks for dependencies
+- Set up alerts for critical failures
+
+## Development Workflow
+
+1. Create feature branch from main
+2. Implement changes with tests
+3. Run local verification: `./scripts/test.sh`
+4. Submit pull request
+5. Deploy via CI/CD pipeline
+
+## Useful Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+
+# Run tests
+npm test
+
+# Run locally
+./scripts/run.sh
+
+# Build Docker image
+docker build -t {muppet_name} .
+```
+
+## Resources
+
+- [Express.js Documentation](https://expressjs.com/)
+- [Node.js 20 LTS Guide](https://nodejs.org/en/docs/)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [Platform Documentation](../../../docs/)
+"""
+
+    def _generate_python_business_logic_steering(
+        self, template_metadata: TemplateMetadata, muppet_name: str
+    ) -> str:
+        """Generate Python-specific business logic steering documentation."""
+        return f"""# Business Logic Guidelines for {muppet_name}
+
+This document contains muppet-specific development guidelines and patterns.
+
+## Overview
+
+{muppet_name} is a {template_metadata.language} {template_metadata.framework} service that provides [describe your service's purpose here].
+
+## Architecture Patterns
+
+### Service Layer
+- Keep business logic in service classes
+- Use dependency injection for testability
+- Implement proper error handling and validation
+
+### Data Access
+- Use repository pattern for data access
+- Implement proper connection pooling
+- Consider caching for frequently accessed data
+
+### API Design
+- Follow RESTful principles
+- Use proper HTTP status codes (see shared/http-responses.md)
+- Implement proper request/response validation with Pydantic
+
+## Testing Strategy
+
+### Unit Tests
+- Aim for 70%+ test coverage (see shared/test-coverage.md)
+- Mock external dependencies with pytest
+- Test edge cases and error conditions
+
+### Integration Tests
+- Test API endpoints end-to-end
+- Use httpx for HTTP testing
+- Validate business workflows
+
+## Performance Considerations
+
+### Response Times
+- Target < 200ms for simple operations
+- Target < 1s for complex operations
+- Monitor and alert on performance degradation
+
+### Resource Usage
+- Monitor memory usage and optimize as needed
+- Use connection pooling for database connections
+- Implement proper caching strategies
+
+## Security Guidelines
+
+See shared/security.md for platform-wide security requirements.
+
+### Service-Specific Security
+- [Add any service-specific security requirements here]
+- Validate all input parameters with Pydantic
+- Implement proper authentication/authorization
+
+## Monitoring and Logging
+
+See shared/logging.md for logging standards.
+
+### Business Metrics
+- Track key business metrics
+- Implement health checks for dependencies
+- Set up alerts for critical failures
+
+## Development Workflow
+
+1. Create feature branch from main
+2. Implement changes with tests
+3. Run local verification: `./scripts/test.sh`
+4. Submit pull request
+5. Deploy via CI/CD pipeline
+
+## Useful Commands
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run tests
+pytest
+
+# Run locally
+./scripts/run.sh
+
+# Build Docker image
+docker build -t {muppet_name} .
+```
+
+## Resources
+
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Python 3.11 Guide](https://docs.python.org/3.11/)
+- [Pydantic Documentation](https://docs.pydantic.dev/)
+- [Platform Documentation](../../../docs/)
+"""
+
+    def _generate_generic_business_logic_steering(
+        self, template_metadata: TemplateMetadata, muppet_name: str
+    ) -> str:
+        """Generate generic business logic steering documentation."""
+        return f"""# Business Logic Guidelines for {muppet_name}
+
+This document contains muppet-specific development guidelines and patterns.
+
+## Overview
+
+{muppet_name} is a {template_metadata.language} {template_metadata.framework} service that provides [describe your service's purpose here].
+
+## Architecture Patterns
+
+### Service Layer
+- Keep business logic in service classes
+- Use dependency injection for testability
+- Implement proper error handling and validation
+
+### Data Access
+- Use repository pattern for data access
+- Implement proper connection management
+- Consider caching for frequently accessed data
+
+### API Design
+- Follow RESTful principles
+- Use proper HTTP status codes (see shared/http-responses.md)
+- Implement proper request/response validation
+
+## Testing Strategy
+
+### Unit Tests
+- Aim for 70%+ test coverage (see shared/test-coverage.md)
+- Mock external dependencies
+- Test edge cases and error conditions
+
+### Integration Tests
+- Test API endpoints end-to-end
+- Validate business workflows
+
+## Performance Considerations
+
+### Response Times
+- Target < 200ms for simple operations
+- Target < 1s for complex operations
+- Monitor and alert on performance degradation
+
+### Resource Usage
+- Monitor memory usage and optimize as needed
+- Use connection pooling for database connections
+- Implement proper caching strategies
+
+## Security Guidelines
+
+See shared/security.md for platform-wide security requirements.
+
+### Service-Specific Security
+- [Add any service-specific security requirements here]
+- Validate all input parameters
+- Implement proper authentication/authorization
+
+## Monitoring and Logging
+
+See shared/logging.md for logging standards.
+
+### Business Metrics
+- Track key business metrics
+- Implement health checks for dependencies
+- Set up alerts for critical failures
+
+## Development Workflow
+
+1. Create feature branch from main
+2. Implement changes with tests
+3. Run local verification: `./scripts/test.sh`
+4. Submit pull request
+5. Deploy via CI/CD pipeline
+
+## Useful Commands
+
+```bash
+# Build the application
+./scripts/build.sh
+
+# Run tests
+./scripts/test.sh
+
+# Run locally
+./scripts/run.sh
+
+# Build Docker image
+docker build -t {muppet_name} .
+```
+
+## Resources
+
 - [Platform Documentation](../../../docs/)
 """

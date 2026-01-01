@@ -1,0 +1,89 @@
+name: node-express
+version: "1.0.0"
+description: "Node.js Express template with TypeScript - Simple by default, extensible by choice"
+language: javascript
+framework: express
+port: 3000
+
+# Node.js 20 LTS enforcement (per steering requirements)
+metadata:
+  node_version: "20"
+  node_distribution: "node"
+  express_version: "4.18.2"
+  typescript_version: "5.3.3"
+  npm_version: "10"
+
+# Simple by Default: Auto-generation settings
+# These are enabled by default for zero-config experience
+# Power users can disable and provide custom implementations
+auto_generate:
+  infrastructure: true    # Complete OpenTofu with TLS, monitoring, security
+  cicd: true             # GitHub Actions workflows optimized for Node.js
+  kiro: true             # Language servers, debugging, steering docs
+  tls: true              # Automatic HTTPS with certificate management
+  monitoring: true       # CloudWatch, alarms, dashboards
+  security: true         # Vulnerability scanning, compliance checks
+
+# Extensible by Choice: Power user configuration
+# Only used when auto_generate is disabled for specific components
+extensibility:
+  custom_modules: false          # Enable custom OpenTofu modules
+  infrastructure_overrides: false # Enable infrastructure overrides
+  custom_workflows: false        # Enable custom CI/CD workflows
+  template_inheritance: false    # Enable template inheritance
+
+# Infrastructure modules (used when auto_generate.infrastructure = false)
+terraform_modules:
+  - fargate-service
+  - monitoring
+  - networking
+  - ecr
+
+# Required variables (auto-detected when auto_generate = true)
+required_variables:
+  - muppet_name
+  - aws_region
+  - environment
+
+# Supported features (auto-configured when auto_generate = true)
+supported_features:
+  - health_checks
+  - metrics
+  - logging
+  - docker
+  - npm_build
+  - unit_tests
+  - integration_tests
+  - local_development
+  - tls_termination
+  - auto_scaling
+  - security_scanning
+  - typescript_support
+  - eslint_prettier
+
+# Template files (all files included for "Simple by Default" approach)
+template_files:
+  core:
+    - src/
+    - package.json.template
+    - tsconfig.json.template
+    - jest.config.js.template
+    - .eslintrc.js.template
+    - .prettierrc.template
+    - .prettierignore.template
+    - scripts/                 # Essential scripts only (build, run, test, init)
+    - README.template.md
+    - docker-compose.local.yml.template
+    - Makefile.template
+    - Dockerfile.template      # ARM64 optimized for Node.js 20 LTS
+    - .env.local               # Local development environment variables
+    - terraform/               # Simplified terraform configuration
+    - .github/workflows/       # Enhanced CI/CD with service URL discovery
+    - .kiro/                   # Kiro configuration for seamless development
+
+# Power user extensions (only used when extensibility features are enabled)
+extensions:
+  custom_modules_path: "infrastructure/custom-modules/"
+  overrides_path: "infrastructure/overrides/"
+  custom_workflows_path: ".github/workflows/"
+  custom_kiro_path: ".kiro/extensions/"

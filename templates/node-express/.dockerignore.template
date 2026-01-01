@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build output (will be built in container)
+dist/
+
+# Environment files
+.env*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+docs/
+
+# Development files
+docker-compose*.yml
+Dockerfile*
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+jest.config.js
+coverage/
+
+# Temporary files
+tmp/
+temp/
