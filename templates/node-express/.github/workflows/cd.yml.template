@@ -24,9 +24,6 @@ jobs:
   # Build and test job
   build-and-test:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-      image-digest: ${{ steps.build.outputs.digest }}
     
     steps:
       - name: Checkout code
@@ -60,60 +57,23 @@ jobs:
       - name: Build application
         run: npm run build
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      - name: Build Docker image (local test only)
+        run: docker build -t {{muppet_name}} .
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{date 'YYYYMMDD'}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile.template
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            NODE_VERSION=${{ env.NODE_VERSION }}
-            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-            VCS_REF=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
-
-      - name: Run security scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload security scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
+      - name: Test Docker image
+        run: |
+          # Start container in background
+          docker run -d --name test-container -p 3000:3000 {{muppet_name}}
+          
+          # Wait for container to start
+          sleep 10
+          
+          # Test health endpoint
+          curl -f http://localhost:3000/health
+          
+          # Stop and remove container
+          docker stop test-container
+          docker rm test-container
 
   # Determine deployment environment
   determine-environment:
@@ -146,10 +106,25 @@ jobs:
     if: needs.determine-environment.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -180,9 +155,51 @@ jobs:
             -var="aws_region=${{ env.AWS_REGION }}" \
             -out=tfplan
 
-      - name: Apply OpenTofu changes
+      - name: Apply OpenTofu changes (creates ECR repository)
         working-directory: ./terraform
         run: tofu apply -auto-approve tfplan
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{date 'YYYYMMDD'}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
 
       - name: Get service information
         id: service-info
@@ -259,7 +276,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Service:** {{muppet_name}}" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** ${{ needs.build-and-test.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
