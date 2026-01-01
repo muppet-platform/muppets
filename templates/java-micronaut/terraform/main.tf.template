@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -8,47 +8,361 @@ terraform {
   }
   backend "s3" {
     bucket = "muppet-platform-terraform-state"
-    key    = "muppets/{{.Name}}/terraform.tfstate"
-    region = "us-west-2"
+    key    = "muppets/{{muppet_name}}/terraform.tfstate"
+    region = "{{aws_region}}"
+    dynamodb_table = "muppet-platform-terraform-locks"
+    encrypt        = true
   }
 }
 
+# Simplified infrastructure for {{muppet_name}}
+# State locking and encryption configuration
 provider "aws" {
-  region = "us-west-2"
+  region = "{{aws_region}}"
 }
 
-module "muppet" {
-  source = "git::https://github.com/muppet-platform/muppets.git//terraform-modules/muppet-java-micronaut?ref=main"
-  
-  muppet_name = "{{.Name}}"
-  environment = "{{.Environment}}"
-  image_tag   = var.image_tag
-  
-  # Resource configuration
-  cpu    = {{.CPU}}
-  memory = {{.Memory}}
-  
-  # TLS Configuration (enabled by default)
-  enable_https         = {{.EnableHTTPS}}
-  certificate_arn      = "{{.CertificateArn}}"
-  domain_name          = "{{.DomainName}}"
-  zone_id              = "{{.HostedZoneId}}"
-  create_dns_record    = {{.CreateDNSRecord}}
-  redirect_http_to_https = {{.RedirectHTTPToHTTPS}}
-  ssl_policy           = "{{.SSLPolicy}}"
-  
-  # Additional environment variables
-  additional_environment_variables = {
-    {{range $key, $value := .EnvironmentVariables}}
-    {{$key}} = "{{$value}}"
-    {{end}}
+# Default VPC data source
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
   }
 }
 
-output "alb_dns_name" {
-  value = module.muppet.alb_dns_name
+# ECR repository data source
+# CD workflow step "Ensure ECR repository exists"
+data "aws_ecr_repository" "main" {
+  name = var.muppet_name
 }
 
-output "service_url" {
-  value = module.muppet.service_url
+# Common tags
+locals {
+  common_tags = {
+    MuppetName   = "{{muppet_name}}"
+    Environment  = "{{environment}}"
+    ManagedBy    = "muppet-platform"
+    Template     = "java-micronaut"
+    Language     = "java"
+    Framework    = "micronaut"
+    JavaVersion   = "21-LTS"
+    CreatedBy    = "platform-service"
+  }
+}
+
+# Security group for the application
+resource "aws_security_group" "app" {
+  name_prefix = "${var.muppet_name}-"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-security-group"
+  })
+}
+
+# ECS cluster
+resource "aws_ecs_cluster" "main" {
+  name = "${var.muppet_name}-cluster"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-cluster"
+  })
+}
+
+# CloudWatch log group
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/ecs/${var.muppet_name}"
+  retention_in_days = 7
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-logs"
+  })
+}
+
+# IAM role for ECS task execution
+resource "aws_iam_role" "execution" {
+  name = "${var.muppet_name}-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-execution-role"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "execution" {
+  role       = aws_iam_role.execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# IAM role for ECS task
+resource "aws_iam_role" "task" {
+  name = "${var.muppet_name}-task-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-task-role"
+  })
+}
+
+# ECS task definition
+resource "aws_ecs_task_definition" "app" {
+  family                   = var.muppet_name
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.cpu
+  memory                   = var.memory
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn           = aws_iam_role.task.arn
+
+  runtime_platform {
+    # Use ARM64 architecture for better cost/performance
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+
+  container_definitions = jsonencode([
+    {
+      name  = var.muppet_name
+      image = "${data.aws_ecr_repository.main.repository_url}:${var.image_tag}"
+
+      portMappings = [
+        {
+          containerPort = 3000
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "JAVA_VERSION"
+          value = "21"
+        },
+        {
+          name  = "JAVA_DISTRIBUTION"
+          value = "amazon-corretto"
+        },
+        {
+          name  = "JAVA_OPTS"
+          value = "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+EnableDynamicAgentLoading"
+        },
+        {
+          name  = "JVM_ARGS"
+          value = "-Xms512m -Xmx1024m"
+        },
+        {
+          name  = "MICRONAUT_ENVIRONMENTS"
+          value = var.environment
+        }
+      ]
+
+      healthCheck = {
+        command = ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+        interval = 30
+        timeout = 5
+        retries = 3
+        startPeriod = 120
+      }
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+    }
+  ])
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-task-definition"
+  })
+}
+
+# Application Load Balancer
+resource "aws_lb" "main" {
+  name               = "${var.muppet_name}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.app.id]
+  subnets           = data.aws_subnets.default.ids
+
+  enable_deletion_protection = false
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-alb"
+  })
+}
+
+# Target group
+resource "aws_lb_target_group" "app" {
+  name        = "${var.muppet_name}-tg"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = data.aws_vpc.default.id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-target-group"
+  })
+}
+
+# Load balancer listener
+resource "aws_lb_listener" "app" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-listener"
+  })
+}
+
+# ECS service
+resource "aws_ecs_service" "app" {
+  name            = "${var.muppet_name}-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.app.arn
+  desired_count   = var.min_capacity
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    security_groups  = [aws_security_group.app.id]
+    subnets         = data.aws_subnets.default.ids
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app.arn
+    container_name   = var.muppet_name
+    container_port   = 3000
+  }
+
+  depends_on = [aws_lb_listener.app]
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-service"
+  })
+}
+
+# Auto Scaling Target
+resource "aws_appautoscaling_target" "ecs_target" {
+  max_capacity       = var.max_capacity
+  min_capacity       = var.min_capacity
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.app.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+
+  tags = merge(local.common_tags, {
+    Name = "{{muppet_name}}-autoscaling-target"
+  })
+}
+
+# Auto Scaling Policy - CPU
+resource "aws_appautoscaling_policy" "ecs_policy_cpu" {
+  name               = "${var.muppet_name}-cpu-scaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value = 70.0
+  }
+}
+
+# Auto Scaling Policy - Memory
+resource "aws_appautoscaling_policy" "ecs_policy_memory" {
+  name               = "${var.muppet_name}-memory-scaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+    }
+    target_value = 80.0
+  }
 }

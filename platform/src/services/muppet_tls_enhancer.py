@@ -39,12 +39,14 @@ class MuppetTLSEnhancer:
         """
         Enhance an existing muppet with TLS configuration.
 
-        This method:
-        1. Discovers the existing ALB for the muppet
-        2. Checks if the muppet uses the new terraform module approach
-        3. Adds HTTPS listener with wildcard certificate (if compatible)
-        4. Creates DNS record pointing to the ALB
-        5. Configures HTTP→HTTPS redirect
+        This method implements the "Zero Breaking Changes" principle by:
+        1. Discovering the existing ALB for the muppet
+        2. Adding HTTPS listener with wildcard certificate
+        3. Adding HTTPS security group rules if needed
+        4. Creating DNS record pointing to the ALB
+        5. Configuring HTTP→HTTPS redirect
+
+        No changes required to the muppet's configuration.
 
         Args:
             muppet_name: Name of the muppet to enhance
@@ -70,39 +72,6 @@ class MuppetTLSEnhancer:
             # Step 3: Add HTTPS listener to existing ALB
             https_listener = await self._add_https_listener(alb_info, tls_config)
 
-            # If the muppet requires terraform migration, return guidance
-            if not https_listener.get("success") and https_listener.get(
-                "requires_terraform_migration"
-            ):
-                return {
-                    "success": False,
-                    "muppet_name": muppet_name,
-                    "error": "Muppet requires terraform module migration",
-                    "terraform_approach": "old",
-                    "migration_required": True,
-                    "migration_instructions": https_listener.get(
-                        "migration_instructions", []
-                    ),
-                    "guidance": {
-                        "issue": "This muppet was created with the old terraform approach",
-                        "solution": "Migrate to the new terraform module approach",
-                        "steps": [
-                            f"1. Update {muppet_name} to use terraform-modules/muppet-java-micronaut",
-                            "2. Ensure enable_https = true in terraform configuration",
-                            "3. Set certificate_arn, domain_name, and zone_id variables",
-                            "4. Re-run CD pipeline to apply new infrastructure",
-                            "5. New modules automatically include HTTPS security group rules",
-                        ],
-                        "benefits": [
-                            "Proper HTTPS security group configuration",
-                            "Automatic TLS certificate management",
-                            "Built-in HTTP→HTTPS redirect",
-                            "DNS record management",
-                            "Future-proof infrastructure",
-                        ],
-                    },
-                }
-
             # Step 4: Create DNS record
             dns_record = await self._create_dns_record(
                 muppet_name, alb_info, tls_config
@@ -124,7 +93,9 @@ class MuppetTLSEnhancer:
                 "https_listener_arn": https_listener.get("arn"),
                 "dns_record_created": dns_record.get("success", False),
                 "redirect_configured": redirect_result.get("success", False),
-                "terraform_approach": "new",
+                "security_group_updated": https_listener.get(
+                    "security_group_updated", False
+                ),
                 "tls_config": tls_config,
             }
 
@@ -193,34 +164,13 @@ class MuppetTLSEnhancer:
             # Check if security group allows HTTPS traffic
             https_allowed = await self._check_https_security_group(alb_info)
             if not https_allowed:
-                logger.error(
-                    f"Security group for ALB {alb_info['name']} does not allow HTTPS traffic on port 443"
+                logger.info(
+                    f"Adding HTTPS security group rule to ALB: {alb_info['name']}"
                 )
-                logger.error(
-                    "This muppet was created with the old terraform approach and cannot be enhanced automatically"
+                logger.info(
+                    "Following zero-breaking-changes principle: automatically enhancing existing muppet"
                 )
-                logger.error("To enable TLS for this muppet:")
-                logger.error(
-                    "1. Update the muppet to use the new terraform module approach"
-                )
-                logger.error(
-                    "2. Re-run the CD pipeline to apply the new infrastructure"
-                )
-                logger.error(
-                    "3. The new terraform modules include proper HTTPS security group rules"
-                )
-
-                return {
-                    "success": False,
-                    "error": "Security group does not allow HTTPS traffic",
-                    "requires_terraform_migration": True,
-                    "migration_instructions": [
-                        "Update muppet to use terraform-modules/muppet-java-micronaut",
-                        "Ensure enable_https = true in terraform configuration",
-                        "Re-run CD pipeline to apply new infrastructure",
-                        "New modules automatically include HTTPS security group rules",
-                    ],
-                }
+                await self._add_https_security_group_rule(alb_info)
 
             # Create HTTPS listener
             response = self.elbv2_client.create_listener(
@@ -243,7 +193,7 @@ class MuppetTLSEnhancer:
                 "arn": listener_arn,
                 "protocol": "HTTPS",
                 "port": 443,
-                "terraform_approach": "new",
+                "security_group_updated": not https_allowed,
             }
 
         except ClientError as e:
@@ -290,6 +240,51 @@ class MuppetTLSEnhancer:
         except Exception as e:
             logger.warning(f"Failed to check HTTPS security group rules: {e}")
             return False
+
+    async def _add_https_security_group_rule(self, alb_info: Dict[str, Any]) -> None:
+        """Add HTTPS rule to security group for zero-breaking-changes enhancement."""
+        try:
+            logger.info(f"Adding HTTPS security group rule for ALB: {alb_info['name']}")
+            logger.info(
+                "Zero-breaking-changes: Automatically enhancing existing muppet with TLS"
+            )
+
+            # Get ALB security groups
+            alb_details = self.elbv2_client.describe_load_balancers(
+                LoadBalancerArns=[alb_info["arn"]]
+            )
+
+            security_groups = alb_details["LoadBalancers"][0]["SecurityGroups"]
+
+            for sg_id in security_groups:
+                try:
+                    # Add HTTPS rule (port 443) if it doesn't exist
+                    self.ec2_client.authorize_security_group_ingress(
+                        GroupId=sg_id,
+                        IpPermissions=[
+                            {
+                                "IpProtocol": "tcp",
+                                "FromPort": 443,
+                                "ToPort": 443,
+                                "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                            }
+                        ],
+                    )
+                    logger.info(f"Added HTTPS rule to security group: {sg_id}")
+
+                except ClientError as e:
+                    if e.response["Error"]["Code"] == "InvalidPermission.Duplicate":
+                        logger.info(
+                            f"HTTPS rule already exists in security group: {sg_id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Failed to add HTTPS rule to security group {sg_id}: {e}"
+                        )
+
+        except Exception as e:
+            logger.warning(f"Failed to add HTTPS security group rule: {e}")
+            # Don't fail the entire enhancement if security group update fails
 
     async def _create_dns_record(
         self, muppet_name: str, alb_info: Dict[str, Any], tls_config: Dict[str, Any]

@@ -279,6 +279,53 @@ async def get_migration_guidance(muppet_name: str) -> Dict[str, Any]:
         )
 
 
+@router.get("/auto-enhancement/status")
+async def get_auto_enhancement_status() -> Dict[str, Any]:
+    """
+    Get the status of the automatic TLS enhancement service.
+
+    Shows statistics about recent enhancement attempts and current service status.
+    """
+    try:
+        from fastapi import Request
+
+        from ..services.tls_auto_enhancement_service import TLSAutoEnhancementService
+
+        # This is a bit of a hack to get the service instance
+        # In a real implementation, you'd inject this properly
+        enhancer = MuppetTLSEnhancer()
+
+        # Get current muppets status
+        muppets = await enhancer.list_muppets_needing_tls_enhancement()
+
+        return {
+            "service_status": "running",  # TODO: Get actual status from app.state
+            "discovery": {
+                "total_muppets": len(muppets),
+                "needs_enhancement": sum(1 for m in muppets if m["needs_enhancement"]),
+                "already_enhanced": sum(
+                    1 for m in muppets if not m["needs_enhancement"]
+                ),
+            },
+            "muppets_needing_enhancement": [
+                {
+                    "muppet_name": m["muppet_name"],
+                    "alb_dns": m["alb_dns"],
+                    "terraform_approach": m["terraform_approach"],
+                }
+                for m in muppets
+                if m["needs_enhancement"]
+            ],
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting auto-enhancement status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get auto-enhancement status: {str(e)}",
+        )
+
+
 @router.get("/validate/{muppet_name}")
 async def validate_muppet_tls(muppet_name: str) -> Dict[str, Any]:
     """

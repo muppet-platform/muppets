@@ -1,27 +1,52 @@
-# Outputs for {{.Name}} muppet
-# Uses terraform module approach for TLS-by-default
+# Simplified outputs for {{muppet_name}}
+# Provides essential information for developers and CI/CD
+# Direct resource references for simplified terraform approach
 
+# Application URLs
 output "application_url" {
-  description = "URL to access the application (HTTPS by default)"
-  value       = module.muppet.service_url
+  description = "HTTP URL to access the application"
+  value       = "http://${aws_lb.main.dns_name}"
 }
 
 output "health_check_url" {
   description = "Health check endpoint URL"
-  value       = "${module.muppet.service_url}/health"
+  value       = "http://${aws_lb.main.dns_name}/health"
 }
 
 output "load_balancer_dns" {
-  description = "Load balancer DNS name"
-  value       = module.muppet.alb_dns_name
+  description = "Load balancer DNS name (for easy copy/paste)"
+  value       = aws_lb.main.dns_name
 }
 
 output "service_name" {
   description = "Name of the ECS service"
-  value       = module.muppet.ecs_service_name
+  value       = aws_ecs_service.app.name
 }
 
 output "task_definition_arn" {
   description = "ARN of the task definition"
-  value       = module.muppet.task_definition_arn
+  value       = aws_ecs_task_definition.app.arn
+}
+
+output "cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = aws_ecs_cluster.main.name
+}
+
+output "ecr_repository_url" {
+  description = "ECR repository URL"
+  value       = data.aws_ecr_repository.main.repository_url
+}
+
+output "deployment_info" {
+  description = "Deployment information for CI/CD pipelines"
+  value = {
+    service_name      = aws_ecs_service.app.name
+    cluster_name      = aws_ecs_cluster.main.name
+    load_balancer_dns = aws_lb.main.dns_name
+    health_check_path = "/health"
+    environment       = var.environment
+    application_url   = "http://${aws_lb.main.dns_name}"
+    health_check_url  = "http://${aws_lb.main.dns_name}/health"
+  }
 }

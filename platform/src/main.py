@@ -15,7 +15,15 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .exceptions import PlatformException
 from .logging_config import setup_logging
-from .routers import health, mcp, muppets, templates, tls_enhancement, tls_router
+from .routers import (
+    health,
+    mcp,
+    muppets,
+    templates,
+    tls_enhancement,
+    tls_router,
+    webhooks,
+)
 
 
 @asynccontextmanager
@@ -29,14 +37,17 @@ async def lifespan(app: FastAPI):
 
     # Initialize async clients
     from .integrations.github import GitHubClient
+    from .services.tls_auto_enhancement_service import TLSAutoEnhancementService
     from .state_manager import get_state_manager
 
     # Create and store clients in app state
     github_client = GitHubClient()
     state_manager = get_state_manager()
+    tls_auto_service = TLSAutoEnhancementService()
 
     app.state.github_client = github_client
     app.state.state_manager = state_manager
+    app.state.tls_auto_service = tls_auto_service
 
     logger.info("Initialized async clients")
 
@@ -53,10 +64,26 @@ async def lifespan(app: FastAPI):
         # The state manager will handle uninitialized state gracefully
         # This allows the container to start and pass health checks even without GitHub access
 
+    # Start background services
+    logger.info("Starting background services...")
+    try:
+        # Start TLS auto-enhancement service in background
+        import asyncio
+
+        asyncio.create_task(tls_auto_service.start())
+        logger.info("TLS auto-enhancement service started")
+    except Exception as e:
+        logger.warning(f"Failed to start TLS auto-enhancement service: {e}")
+
     yield
 
     # Shutdown
     logger.info("Shutting down async clients")
+
+    # Stop background services
+    if hasattr(app.state, "tls_auto_service"):
+        await app.state.tls_auto_service.stop()
+
     if hasattr(app.state, "github_client"):
         await app.state.github_client.close()
     logger.info("Shutting down Muppet Platform service")
@@ -93,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(
         tls_enhancement.router, prefix="/api/v1", tags=["tls-enhancement"]
     )
+    app.include_router(webhooks.router, tags=["webhooks"])
     app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 
     # Global exception handler
