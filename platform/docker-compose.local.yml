@@ -7,7 +7,7 @@ services:
       - "4566:4566"  # LocalStack main port
       - "4510-4559:4510-4559"  # External service ports
     environment:
-      - SERVICES=s3,ssm,ecs,ecr,logs,iam
+      - SERVICES=s3,ssm,ecs,ecr,logs,iam,acm,route53
       - DEBUG=1
       - DATA_DIR=/var/lib/localstack/data
       - DOCKER_HOST=unix:///var/run/docker.sock

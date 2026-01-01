@@ -118,7 +118,7 @@ lint:
 	@echo "Running linting on all code..."
 	@echo "Linting will be implemented as components are developed"
 
-# Terraform specific commands
+# Terraform specific commands (Legacy - use OpenTofu instead)
 terraform-init:
 	@echo "Initializing Terraform modules..."
 	cd terraform-modules/ecr && terraform init
@@ -130,6 +130,27 @@ terraform-plan:
 terraform-apply:
 	@echo "Applying Terraform changes..."
 	cd terraform-modules/ecr && terraform apply
+
+# OpenTofu commands (Preferred IaC tool)
+opentofu-init:
+	@echo "Initializing OpenTofu for platform infrastructure..."
+	cd platform/terraform && tofu init
+
+opentofu-plan:
+	@echo "Planning OpenTofu changes for platform infrastructure..."
+	cd platform/terraform && tofu plan
+
+opentofu-apply:
+	@echo "Applying OpenTofu changes for platform infrastructure..."
+	cd platform/terraform && tofu apply
+
+opentofu-destroy:
+	@echo "Destroying OpenTofu infrastructure..."
+	cd platform/terraform && tofu destroy
+
+opentofu-validate:
+	@echo "Validating OpenTofu configuration..."
+	cd platform/terraform && tofu validate
 
 # Docker commands
 docker-build:

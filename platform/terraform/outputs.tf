@@ -97,3 +97,9 @@ output "ecs_service_url" {
   description = "ECS service console URL"
   value       = "https://${var.aws_region}.console.aws.amazon.com/ecs/home?region=${var.aws_region}#/clusters/${aws_ecs_cluster.platform.name}/services/${aws_ecs_service.platform.name}/details"
 }
+
+# TLS Infrastructure Outputs (for muppet consumption)
+output "muppet_tls_enabled" {
+  description = "Whether TLS is enabled by default for muppets"
+  value       = var.enable_muppet_tls_by_default
+}

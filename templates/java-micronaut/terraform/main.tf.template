@@ -29,11 +29,13 @@ module "muppet" {
   memory = {{.Memory}}
   
   # TLS Configuration (enabled by default)
-  enable_https    = {{.EnableHTTPS}}
-  certificate_arn = "{{.CertificateArn}}"
-  domain_name     = "{{.DomainName}}"
-  zone_id         = "{{.HostedZoneId}}"
-  create_dns_record = true
+  enable_https         = {{.EnableHTTPS}}
+  certificate_arn      = "{{.CertificateArn}}"
+  domain_name          = "{{.DomainName}}"
+  zone_id              = "{{.HostedZoneId}}"
+  create_dns_record    = {{.CreateDNSRecord}}
+  redirect_http_to_https = {{.RedirectHTTPToHTTPS}}
+  ssl_policy           = "{{.SSLPolicy}}"
   
   # Additional environment variables
   additional_environment_variables = {

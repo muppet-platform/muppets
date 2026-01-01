@@ -86,11 +86,13 @@ module "fargate_service" {
   log_retention_days = var.log_retention_days
   enable_container_insights = var.environment == "production"
   
-  # Load balancer configuration
+  # Load balancer configuration with TLS-by-default
   create_load_balancer = true
   internal_load_balancer = false
   enable_https = var.enable_https
   certificate_arn = var.certificate_arn
+  redirect_http_to_https = var.redirect_http_to_https
+  ssl_policy = var.ssl_policy
   
   # Monitoring configuration
   enable_monitoring = var.environment == "production"

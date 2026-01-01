@@ -108,17 +108,62 @@ variable "log_retention_days" {
   }
 }
 
-# SSL/TLS Configuration (optional)
+# SSL/TLS Configuration (TLS-by-default enabled)
 variable "enable_https" {
   description = "Enable HTTPS listener on the load balancer"
   type        = bool
-  default     = false
+  default     = true  # Changed from false to true for TLS-by-default
 }
 
 variable "certificate_arn" {
   description = "ARN of the SSL certificate for HTTPS listener"
   type        = string
+  default     = ""  # Will be auto-populated by platform TLS auto-generator
+}
+
+# New TLS-by-default variables
+variable "domain_name" {
+  description = "Custom domain name for the muppet (e.g., muppet-name.s3u.dev)"
+  type        = string
   default     = ""
+  
+  validation {
+    condition = var.domain_name == "" || can(regex("^[a-z0-9][a-z0-9-]*[a-z0-9]\\.[a-z0-9][a-z0-9-]*[a-z0-9]$", var.domain_name))
+    error_message = "Domain name must be a valid FQDN (e.g., muppet-name.s3u.dev)."
+  }
+}
+
+variable "zone_id" {
+  description = "Route 53 hosted zone ID for DNS record creation"
+  type        = string
+  default     = ""
+}
+
+variable "redirect_http_to_https" {
+  description = "Redirect HTTP traffic to HTTPS"
+  type        = bool
+  default     = true
+}
+
+variable "ssl_policy" {
+  description = "SSL policy for HTTPS listener"
+  type        = string
+  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  
+  validation {
+    condition = contains([
+      "ELBSecurityPolicy-TLS13-1-2-2021-06",
+      "ELBSecurityPolicy-TLS-1-2-2017-01",
+      "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+    ], var.ssl_policy)
+    error_message = "SSL policy must be a valid ELB security policy."
+  }
+}
+
+variable "create_dns_record" {
+  description = "Create Route 53 DNS record for custom domain"
+  type        = bool
+  default     = false  # Only create if domain_name and zone_id are provided
 }
 
 # Extension Points for Advanced Users

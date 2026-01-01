@@ -116,3 +116,34 @@ variable "owner_email" {
   type        = string
   default     = "platform-team@company.com"
 }
+
+# TLS Configuration for Muppets
+variable "enable_muppet_tls_by_default" {
+  description = "Enable TLS by default for all new muppets"
+  type        = bool
+  default     = true
+}
+
+variable "s3u_dev_zone_name" {
+  description = "Route 53 hosted zone name for s3u.dev domain"
+  type        = string
+  default     = "s3u.dev"
+  
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", var.s3u_dev_zone_name))
+    error_message = "Zone name must be a valid domain name."
+  }
+}
+
+variable "s3u_dev_zone_id" {
+  description = "Route 53 hosted zone ID for s3u.dev domain"
+  type        = string
+  default     = ""  # Will be populated after zone creation
+}
+
+variable "muppet_wildcard_certificate_arn" {
+  description = "ARN of the wildcard certificate for muppet endpoints (will be populated after certificate creation)"
+  type        = string
+  default     = ""
+}
+

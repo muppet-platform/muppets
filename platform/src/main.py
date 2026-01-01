@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .exceptions import PlatformException
 from .logging_config import setup_logging
-from .routers import health, mcp, muppets, templates
+from .routers import health, mcp, muppets, templates, tls_enhancement, tls_router
 
 
 @asynccontextmanager
@@ -89,6 +89,10 @@ def create_app() -> FastAPI:
     )  # Remove prefix to avoid redirect issues
     app.include_router(muppets.router, prefix="/api/v1/muppets", tags=["muppets"])
     app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
+    app.include_router(tls_router.router, tags=["tls"])
+    app.include_router(
+        tls_enhancement.router, prefix="/api/v1", tags=["tls-enhancement"]
+    )
     app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 
     # Global exception handler

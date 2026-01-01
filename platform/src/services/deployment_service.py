@@ -45,6 +45,7 @@ class DeploymentService:
         container_image: str,
         environment_variables: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        tls_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Deploy a muppet to AWS Fargate.
@@ -62,6 +63,7 @@ class DeploymentService:
             container_image: Docker image URI for the muppet
             environment_variables: Environment variables for the container
             secrets: Secrets for the container (Parameter Store/Secrets Manager ARNs)
+            tls_config: TLS configuration for HTTPS endpoints (optional)
 
         Returns:
             Deployment information including service ARN, load balancer URL, etc.
@@ -82,7 +84,7 @@ class DeploymentService:
 
             # Create infrastructure configuration
             infra_config = self._create_infrastructure_config(
-                muppet, container_image, environment_variables, secrets
+                muppet, container_image, environment_variables, secrets, tls_config
             )
 
             # Deploy infrastructure
@@ -368,6 +370,7 @@ class DeploymentService:
         container_image: str,
         environment_variables: Optional[Dict[str, str]] = None,
         secrets: Optional[Dict[str, str]] = None,
+        tls_config: Optional[Dict[str, Any]] = None,
     ) -> InfraConfig:
         """Create infrastructure configuration for deployment."""
 
@@ -436,6 +439,8 @@ class DeploymentService:
             variables={
                 "environment_variables": default_env_vars,
                 "secrets": secrets or {},
+                # Add TLS configuration variables
+                **self._extract_tls_variables(tls_config),
             },
         )
 
@@ -478,7 +483,36 @@ class DeploymentService:
 
         except Exception as e:
             logger.warning(f"Could not validate ECR repository: {e}")
-            # Continue with deployment - ECR validation is not critical
+
+    def _extract_tls_variables(
+        self, tls_config: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Extract TLS variables for terraform from TLS configuration."""
+        if not tls_config or tls_config.get("error"):
+            # Return default values for no TLS
+            return {
+                "enable_https": False,
+                "certificate_arn": "",
+                "domain_name": "",
+                "zone_id": "",
+                "redirect_http_to_https": False,
+                "ssl_policy": "ELBSecurityPolicy-TLS13-1-2-2021-06",
+                "create_dns_record": False,
+            }
+
+        # Extract TLS variables from configuration
+        return {
+            "enable_https": tls_config.get("enable_https", True),
+            "certificate_arn": tls_config.get("certificate_arn", ""),
+            "domain_name": tls_config.get("domain_name", ""),
+            "zone_id": tls_config.get("zone_id", ""),
+            "redirect_http_to_https": tls_config.get("redirect_http_to_https", True),
+            "ssl_policy": tls_config.get(
+                "ssl_policy", "ELBSecurityPolicy-TLS13-1-2-2021-06"
+            ),
+            "create_dns_record": tls_config.get("create_dns_record", True),
+        }
+        # Continue with deployment - ECR validation is not critical
 
     def _extract_deployment_info(
         self, terraform_outputs: Dict[str, Any]

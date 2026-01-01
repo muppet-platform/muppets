@@ -26,6 +26,7 @@ from ..managers.steering_manager import SteeringManager
 from ..managers.template_manager import GenerationContext, TemplateManager
 from ..models import Muppet, MuppetStatus
 from ..services.deployment_service import DeploymentService
+from ..services.tls_auto_generator import TLSAutoGenerator
 from ..state_manager import get_state_manager
 
 logger = get_logger(__name__)
@@ -46,7 +47,7 @@ class MuppetLifecycleService:
     - State Manager: Platform state tracking
     """
 
-    def __init__(self):
+    def __init__(self, tls_generator: Optional[TLSAutoGenerator] = None):
         self.settings = get_settings()
 
         # Initialize all managers and services
@@ -56,11 +57,14 @@ class MuppetLifecycleService:
         self.deployment_service = DeploymentService()
         self.state_manager = get_state_manager()
 
+        # Initialize TLS auto-generator for TLS-by-default support
+        self.tls_generator = tls_generator or TLSAutoGenerator()
+
         # Initialize steering manager with GitHub client
         github_client = GitHubClient()
         self.steering_manager = SteeringManager(github_client)
 
-        logger.info("Initialized Muppet Lifecycle Service")
+        logger.info("Initialized Muppet Lifecycle Service with TLS-by-default support")
 
     async def create_muppet(
         self,
@@ -68,6 +72,7 @@ class MuppetLifecycleService:
         template: str,
         description: str = "",
         auto_deploy: bool = True,  # Changed default to True for better DX
+        enable_tls: bool = True,  # New parameter, defaults to True for TLS-by-default
         deployment_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
@@ -78,14 +83,16 @@ class MuppetLifecycleService:
         2. Generate code from template
         3. Create GitHub repository with generated code
         4. Set up Kiro configuration and steering docs
-        5. Optionally deploy to AWS Fargate
-        6. Update platform state
+        5. Generate TLS configuration (if enabled)
+        6. Optionally deploy to AWS Fargate with TLS
+        7. Update platform state
 
         Args:
             name: Muppet name (must be unique)
             template: Template type to use
             description: Optional description for the muppet
             auto_deploy: Whether to automatically deploy after creation
+            enable_tls: Whether to enable TLS by default (defaults to True)
             deployment_config: Optional deployment configuration
 
         Returns:
@@ -142,13 +149,42 @@ class MuppetLifecycleService:
                 muppet, template_files
             )
 
-            # Step 7: Optionally deploy to AWS Fargate
+            # Step 7: Generate TLS configuration if enabled
+            tls_config = None
+            if enable_tls:
+                logger.info(f"Generating TLS configuration for muppet {name}")
+                try:
+                    tls_config = self.tls_generator.generate_muppet_tls_config(name)
+                    logger.info(
+                        f"TLS configuration generated for muppet {name}: {tls_config['domain_name']}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to generate TLS configuration for muppet {name}: {e}"
+                    )
+                    if not auto_deploy:
+                        # If not auto-deploying, TLS failure shouldn't block creation
+                        tls_config = {"error": str(e), "enabled": False}
+                    else:
+                        raise PlatformException(
+                            message=f"TLS configuration generation failed: {str(e)}",
+                            error_type="TLS_CONFIG_ERROR",
+                            status_code=500,
+                            details={"muppet_name": name},
+                        )
+
+            # Step 8: Optionally deploy to AWS Fargate
             deployment_result = None
             if auto_deploy:
                 logger.info(f"Auto-deploying muppet {name} to AWS Fargate")
                 try:
+                    # Include TLS configuration in deployment config
+                    enhanced_deployment_config = deployment_config or {}
+                    if tls_config and not tls_config.get("error"):
+                        enhanced_deployment_config["tls_config"] = tls_config
+
                     deployment_result = await self._auto_deploy_muppet(
-                        muppet, deployment_config
+                        muppet, enhanced_deployment_config
                     )
                     muppet.status = MuppetStatus.RUNNING
                     muppet.fargate_service_arn = deployment_result.get("service_arn")
@@ -159,12 +195,12 @@ class MuppetLifecycleService:
             else:
                 muppet.status = MuppetStatus.STOPPED  # Ready but not deployed
 
-            # Step 8: Update final status
+            # Step 9: Update final status
             muppet.updated_at = datetime.utcnow()
             await self.github_manager.update_muppet_status(name, muppet.status.value)
             await self.state_manager.add_muppet_to_state(muppet)
 
-            # Step 9: Compile complete creation result
+            # Step 10: Compile complete creation result
             creation_result = {
                 "success": True,
                 "muppet": muppet.to_dict(),
@@ -175,14 +211,28 @@ class MuppetLifecycleService:
                     "success": True,
                 },
                 "steering_setup": steering_result,
+                "tls_configuration": tls_config,
                 "deployment": deployment_result,
                 "created_at": muppet.created_at.isoformat(),
                 "next_steps": self._generate_next_steps(
-                    muppet, auto_deploy, deployment_result
+                    muppet, auto_deploy, deployment_result, tls_config
                 ),
             }
 
-            logger.info(f"Successfully created muppet {name}")
+            # Add HTTPS endpoint if TLS is enabled and working
+            if tls_config and not tls_config.get("error"):
+                creation_result["endpoints"] = {
+                    "https": f"https://{name}.s3u.dev",
+                    "domain_name": tls_config["domain_name"],
+                }
+                if deployment_result and deployment_result.get("service_url"):
+                    creation_result["endpoints"]["load_balancer"] = deployment_result[
+                        "service_url"
+                    ]
+
+            logger.info(
+                f"Successfully created muppet {name} with TLS {'enabled' if enable_tls else 'disabled'}"
+            )
             return creation_result
 
         except (ValidationError, GitHubError, DeploymentError):
@@ -584,6 +634,128 @@ class MuppetLifecycleService:
                 status_code=500,
             )
 
+    async def migrate_existing_muppet_to_tls(self, muppet_name: str) -> Dict[str, Any]:
+        """
+        Migrate an existing muppet to use TLS.
+
+        This method enables TLS for muppets that were created before TLS-by-default
+        was implemented. It generates TLS configuration and provides instructions
+        for applying the changes.
+
+        Args:
+            muppet_name: Name of the muppet to migrate
+
+        Returns:
+            Migration result with TLS configuration and next steps
+
+        Raises:
+            ValidationError: If muppet doesn't exist
+            PlatformException: If migration fails
+        """
+        try:
+            logger.info(f"Starting TLS migration for muppet: {muppet_name}")
+
+            # Validate muppet exists
+            muppet = await self.state_manager.get_muppet(muppet_name)
+            if not muppet:
+                raise ValidationError(
+                    f"Muppet '{muppet_name}' not found",
+                    details={"muppet_name": muppet_name},
+                )
+
+            # Generate TLS configuration
+            logger.info(f"Generating TLS configuration for muppet {muppet_name}")
+            tls_config = self.tls_generator.generate_muppet_tls_config(muppet_name)
+
+            # Update muppet's terraform variables (this would be done by updating the repository)
+            migration_instructions = await self._generate_tls_migration_instructions(
+                muppet_name, tls_config
+            )
+
+            # Prepare migration result
+            migration_result = {
+                "success": True,
+                "muppet_name": muppet_name,
+                "message": "TLS migration configuration generated. Follow the instructions to complete migration.",
+                "https_endpoint": f"https://{muppet_name}.s3u.dev",
+                "tls_config": tls_config,
+                "migration_instructions": migration_instructions,
+                "migration_initiated_at": datetime.utcnow().isoformat(),
+            }
+
+            logger.info(
+                f"TLS migration configuration generated for muppet {muppet_name}"
+            )
+            return migration_result
+
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to migrate muppet {muppet_name} to TLS: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "muppet_name": muppet_name,
+                "migration_failed_at": datetime.utcnow().isoformat(),
+            }
+
+    async def _generate_tls_migration_instructions(
+        self, muppet_name: str, tls_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate step-by-step instructions for TLS migration."""
+
+        return {
+            "overview": "To enable TLS for your muppet, you need to update the terraform configuration and redeploy.",
+            "steps": [
+                {
+                    "step": 1,
+                    "title": "Update Terraform Variables",
+                    "description": "Add TLS configuration to your muppet's terraform.tfvars file",
+                    "terraform_variables": {
+                        "enable_https": tls_config["enable_https"],
+                        "certificate_arn": tls_config["certificate_arn"],
+                        "domain_name": tls_config["domain_name"],
+                        "zone_id": tls_config["zone_id"],
+                        "redirect_http_to_https": tls_config["redirect_http_to_https"],
+                        "ssl_policy": tls_config["ssl_policy"],
+                        "create_dns_record": tls_config["create_dns_record"],
+                    },
+                },
+                {
+                    "step": 2,
+                    "title": "Update Terraform Configuration",
+                    "description": "Ensure your main.tf references the TLS variables",
+                    "note": "Most muppet templates should already support TLS configuration",
+                },
+                {
+                    "step": 3,
+                    "title": "Deploy Changes",
+                    "description": "Run your CI/CD pipeline or deploy manually",
+                    "commands": [
+                        "git add terraform.tfvars",
+                        "git commit -m 'Enable TLS for muppet'",
+                        "git push origin main",
+                    ],
+                },
+                {
+                    "step": 4,
+                    "title": "Verify TLS Endpoint",
+                    "description": f"Test your HTTPS endpoint: https://{muppet_name}.s3u.dev",
+                    "validation_commands": [
+                        f"curl -I https://{muppet_name}.s3u.dev/health",
+                        f"curl -I http://{muppet_name}.s3u.dev/health  # Should redirect to HTTPS",
+                    ],
+                },
+            ],
+            "automatic_features": [
+                "DNS record creation (automatic)",
+                "Certificate management (automatic)",
+                "HTTP to HTTPS redirect (automatic)",
+                "TLS 1.3 support (automatic)",
+            ],
+            "support": "Contact the platform team if you encounter issues during migration",
+        }
+
     async def _validate_muppet_creation(self, name: str, template: str) -> None:
         """Validate muppet creation inputs and check for conflicts."""
 
@@ -736,6 +908,7 @@ class MuppetLifecycleService:
             container_image=container_image,
             environment_variables=environment_variables,
             secrets=secrets,
+            tls_config=config.get("tls_config"),
         )
 
     def _get_default_container_image(self, template: str, muppet_name: str) -> str:
@@ -750,6 +923,7 @@ class MuppetLifecycleService:
         muppet: Muppet,
         auto_deploy: bool,
         deployment_result: Optional[Dict[str, Any]],
+        tls_config: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Generate next steps for the user after muppet creation."""
 
@@ -770,6 +944,13 @@ class MuppetLifecycleService:
             steps.append(
                 f"Access your deployed muppet at: {deployment_result['service_url']}"
             )
+
+        # Add TLS-specific next steps
+        if tls_config and not tls_config.get("error"):
+            steps.append(
+                f"Your muppet will be available at: https://{muppet.name}.s3u.dev (after deployment)"
+            )
+            steps.append("TLS certificate and DNS are configured automatically")
 
         return steps
 
