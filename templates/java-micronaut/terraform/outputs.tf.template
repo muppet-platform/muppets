@@ -1,74 +1,27 @@
-# Simplified outputs for {{muppet_name}}
-# Provides essential information for developers and CI/CD
+# Outputs for {{.Name}} muppet
+# Uses terraform module approach for TLS-by-default
 
-# Application URLs
 output "application_url" {
-  description = "HTTP URL to access the application"
-  value       = "http://${aws_lb.main.dns_name}"
+  description = "URL to access the application (HTTPS by default)"
+  value       = module.muppet.service_url
 }
 
 output "health_check_url" {
   description = "Health check endpoint URL"
-  value       = "http://${aws_lb.main.dns_name}/health"
+  value       = "${module.muppet.service_url}/health"
 }
 
-# Load Balancer Information
 output "load_balancer_dns" {
-  description = "Load balancer DNS name (for easy copy/paste)"
-  value       = aws_lb.main.dns_name
+  description = "Load balancer DNS name"
+  value       = module.muppet.alb_dns_name
 }
 
-output "load_balancer_arn" {
-  description = "ARN of the load balancer"
-  value       = aws_lb.main.arn
-}
-
-# Service Information
 output "service_name" {
   description = "Name of the ECS service"
-  value       = aws_ecs_service.app.name
+  value       = module.muppet.ecs_service_name
 }
 
-output "cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = aws_ecs_cluster.main.name
-}
-
-# Container Registry Information
-output "ecr_repository_url" {
-  description = "ECR repository URL"
-  value       = data.aws_ecr_repository.main.repository_url
-}
-
-# Monitoring Information
-output "log_group_name" {
-  description = "CloudWatch log group name"
-  value       = aws_cloudwatch_log_group.app.name
-}
-
-# Deployment Information for CI/CD
-output "deployment_info" {
-  description = "Deployment information for CI/CD pipelines"
-  value = {
-    service_name      = aws_ecs_service.app.name
-    cluster_name      = aws_ecs_cluster.main.name
-    container_name    = var.muppet_name
-    container_port    = 3000
-    load_balancer_dns = aws_lb.main.dns_name
-    health_check_path = "/health"
-    environment       = var.environment
-  }
-}
-
-# Environment Configuration
-output "environment_config" {
-  description = "Environment-specific configuration summary"
-  value = {
-    environment        = var.environment
-    min_capacity      = var.min_capacity
-    max_capacity      = var.max_capacity
-    cpu              = var.cpu
-    memory           = var.memory
-    log_retention_days = var.log_retention_days
-  }
+output "task_definition_arn" {
+  description = "ARN of the task definition"
+  value       = module.muppet.task_definition_arn
 }
