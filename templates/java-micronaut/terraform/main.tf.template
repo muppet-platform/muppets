@@ -18,40 +18,28 @@ provider "aws" {
 }
 
 module "muppet" {
-  source = "git::https://github.com/muppet-platform/terraform-modules.git//muppet-java-micronaut?ref=main"
+  source = "git::https://github.com/muppet-platform/muppets.git//terraform-modules/muppet-java-micronaut?ref=main"
   
-  name = "{{.Name}}"
-  
-  # Container configuration
-  container_image = "{{.ContainerImage}}"
-  container_port  = {{.ContainerPort}}
-  
-  # Environment variables
-  environment_variables = {
-    {{range $key, $value := .EnvironmentVariables}}
-    {{$key}} = "{{$value}}"
-    {{end}}
-  }
+  muppet_name = "{{.Name}}"
+  environment = "{{.Environment}}"
+  image_tag   = var.image_tag
   
   # Resource configuration
   cpu    = {{.CPU}}
   memory = {{.Memory}}
   
-  # Networking
-  vpc_id            = "{{.VpcId}}"
-  private_subnet_ids = [{{range $i, $subnet := .PrivateSubnetIds}}{{if $i}}, {{end}}"{{$subnet}}"{{end}}]
-  public_subnet_ids  = [{{range $i, $subnet := .PublicSubnetIds}}{{if $i}}, {{end}}"{{$subnet}}"{{end}}]
-  
   # TLS Configuration (enabled by default)
   enable_https    = {{.EnableHTTPS}}
   certificate_arn = "{{.CertificateArn}}"
   domain_name     = "{{.DomainName}}"
-  hosted_zone_id  = "{{.HostedZoneId}}"
+  zone_id         = "{{.HostedZoneId}}"
+  create_dns_record = true
   
-  tags = {
-    Environment = "{{.Environment}}"
-    Project     = "muppet-platform"
-    ManagedBy   = "terraform"
+  # Additional environment variables
+  additional_environment_variables = {
+    {{range $key, $value := .EnvironmentVariables}}
+    {{$key}} = "{{$value}}"
+    {{end}}
   }
 }
 
