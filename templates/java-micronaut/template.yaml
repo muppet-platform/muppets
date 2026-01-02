@@ -67,6 +67,7 @@ template_files:
     - gradlew
     - gradlew.bat
     - gradle/
+    - .gitignore.template      # Java specific gitignore patterns
     - scripts/                 # Essential scripts only (build, run, test, init)
     - README.template.md
     - docker-compose.local.yml.template

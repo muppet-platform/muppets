@@ -71,6 +71,7 @@ template_files:
     - .eslintrc.js.template
     - .prettierrc.template
     - .prettierignore.template
+    - .gitignore.template      # Node.js specific gitignore patterns
     - scripts/                 # Essential scripts only (build, run, test, init)
     - README.template.md
     - docker-compose.local.yml.template
