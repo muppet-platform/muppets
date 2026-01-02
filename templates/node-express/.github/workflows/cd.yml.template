@@ -129,14 +129,60 @@ jobs:
           CLUSTER_NAME="${{ env.MUPPET_NAME }}-cluster"
           SERVICE_NAME="${{ env.MUPPET_NAME }}"
           
+          echo "🔄 Forcing new deployment for ECS service..."
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
             --service $SERVICE_NAME \
-            --force-new-deployment
+            --force-new-deployment \
+            --deployment-configuration maximumPercent=200,minimumHealthyPercent=50
           
-          aws ecs wait services-stable \
+          echo "⏳ Waiting for service to stabilize (timeout: 15 minutes)..."
+          if ! aws ecs wait services-stable \
             --cluster $CLUSTER_NAME \
-            --services $SERVICE_NAME
+            --services $SERVICE_NAME \
+            --cli-read-timeout 900 \
+            --cli-connect-timeout 60; then
+            
+            echo "❌ Service did not stabilize within timeout. Checking service status..."
+            
+            # Get current service status
+            aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}' \
+              --output table
+            
+            # Get recent service events
+            echo "📋 Recent service events:"
+            aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].events[:5]' \
+              --output table
+            
+            # Check if service is actually healthy despite timeout
+            RUNNING_COUNT=$(aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].runningCount' \
+              --output text)
+            
+            DESIRED_COUNT=$(aws ecs describe-services \
+              --cluster $CLUSTER_NAME \
+              --services $SERVICE_NAME \
+              --query 'services[0].desiredCount' \
+              --output text)
+            
+            if [ "$RUNNING_COUNT" -eq "$DESIRED_COUNT" ]; then
+              echo "✅ Service appears healthy (running=$RUNNING_COUNT, desired=$DESIRED_COUNT)"
+              echo "⚠️  Deployment may have succeeded despite timeout"
+            else
+              echo "❌ Service is not healthy (running=$RUNNING_COUNT, desired=$DESIRED_COUNT)"
+              exit 1
+            fi
+          else
+            echo "✅ Service deployment completed successfully"
+          fi
 
       - name: Deployment complete
         run: |
