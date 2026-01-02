@@ -1,52 +1,105 @@
-# Simplified outputs for {{muppet_name}}
-# Provides essential information for developers and CI/CD
-# Direct resource references for simplified terraform approach
+# {{muppet_name}} - Java Micronaut Infrastructure Outputs
+# Using shared module outputs for platform-managed infrastructure
 
 # Application URLs
 output "application_url" {
-  description = "HTTP URL to access the application"
-  value       = "http://${aws_lb.main.dns_name}"
+  description = "URL to access the application (HTTPS by default)"
+  value       = module.muppet.application_url
+}
+
+output "service_url" {
+  description = "Service URL (alias for application_url)"
+  value       = module.muppet.service_url
 }
 
 output "health_check_url" {
   description = "Health check endpoint URL"
-  value       = "http://${aws_lb.main.dns_name}/health"
+  value       = module.muppet.health_check_url
 }
 
-output "load_balancer_dns" {
-  description = "Load balancer DNS name (for easy copy/paste)"
-  value       = aws_lb.main.dns_name
+# Load Balancer Information
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.muppet.alb_dns_name
 }
 
-output "service_name" {
+output "alb_zone_id" {
+  description = "Zone ID of the Application Load Balancer"
+  value       = module.muppet.alb_zone_id
+}
+
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = module.muppet.alb_arn
+}
+
+# Service Information
+output "ecs_service_name" {
   description = "Name of the ECS service"
-  value       = aws_ecs_service.app.name
+  value       = module.muppet.ecs_service_name
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = module.muppet.ecs_cluster_name
 }
 
 output "task_definition_arn" {
   description = "ARN of the task definition"
-  value       = aws_ecs_task_definition.app.arn
+  value       = module.muppet.task_definition_arn
+}
+
+# Networking Information
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.muppet.vpc_id
+}
+
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = module.muppet.private_subnet_ids
+}
+
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.muppet.public_subnet_ids
+}
+
+# Container Registry Information
+output "ecr_repository_url" {
+  description = "ECR repository URL"
+  value       = module.muppet.ecr_repository_url
+}
+
+# TLS Information
+output "custom_domain_url" {
+  description = "Custom domain URL (if configured)"
+  value       = module.muppet.custom_domain_url
+}
+
+output "tls_enabled" {
+  description = "Whether TLS/HTTPS is enabled"
+  value       = module.muppet.tls_enabled
+}
+
+# Deployment Information for CI/CD
+output "deployment_info" {
+  description = "Deployment information for CI/CD pipelines"
+  value       = module.muppet.deployment_info
+}
+
+# Legacy outputs for backward compatibility
+output "load_balancer_dns" {
+  description = "Load balancer DNS name (legacy alias for alb_dns_name)"
+  value       = module.muppet.alb_dns_name
+}
+
+output "service_name" {
+  description = "Name of the ECS service (legacy alias for ecs_service_name)"
+  value       = module.muppet.ecs_service_name
 }
 
 output "cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = aws_ecs_cluster.main.name
-}
-
-output "ecr_repository_url" {
-  description = "ECR repository URL"
-  value       = data.aws_ecr_repository.main.repository_url
-}
-
-output "deployment_info" {
-  description = "Deployment information for CI/CD pipelines"
-  value = {
-    service_name      = aws_ecs_service.app.name
-    cluster_name      = aws_ecs_cluster.main.name
-    load_balancer_dns = aws_lb.main.dns_name
-    health_check_path = "/health"
-    environment       = var.environment
-    application_url   = "http://${aws_lb.main.dns_name}"
-    health_check_url  = "http://${aws_lb.main.dns_name}/health"
-  }
+  description = "Name of the ECS cluster (legacy alias for ecs_cluster_name)"
+  value       = module.muppet.ecs_cluster_name
 }

@@ -146,8 +146,12 @@ class TestS3BackendIntegration:
         """Test that backend configuration includes helpful comments."""
         content = backend_tf_template
 
-        # Should include explanatory comments (matching actual content)
-        assert "# State locking" in content, "Should include state locking explanation"
+        # Should include explanatory comments (updated for module-based approach)
         assert (
-            "# Simplified infrastructure for {{muppet_name}}" in content
-        ), "Should include infrastructure explanation"
+            "# This infrastructure is managed by the Muppet Platform using shared modules"
+            in content
+        ), "Should explain module-based approach"
+        assert (
+            "# Individual deployments only update the ECS service with new images"
+            in content
+        ), "Should explain deployment approach"

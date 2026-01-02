@@ -416,16 +416,24 @@ CMD ["java", \\
         self, template_metadata: TemplateMetadata, muppet_name: str
     ) -> str:
         """Generate initial business logic steering documentation."""
-        
+
         # Generate language-specific content
         if template_metadata.language == "java":
-            return self._generate_java_business_logic_steering(template_metadata, muppet_name)
+            return self._generate_java_business_logic_steering(
+                template_metadata, muppet_name
+            )
         elif template_metadata.language == "javascript":
-            return self._generate_nodejs_business_logic_steering(template_metadata, muppet_name)
+            return self._generate_nodejs_business_logic_steering(
+                template_metadata, muppet_name
+            )
         elif template_metadata.language == "python":
-            return self._generate_python_business_logic_steering(template_metadata, muppet_name)
+            return self._generate_python_business_logic_steering(
+                template_metadata, muppet_name
+            )
         else:
-            return self._generate_generic_business_logic_steering(template_metadata, muppet_name)
+            return self._generate_generic_business_logic_steering(
+                template_metadata, muppet_name
+            )
 
     def _generate_java_business_logic_steering(
         self, template_metadata: TemplateMetadata, muppet_name: str

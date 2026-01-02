@@ -53,195 +53,174 @@ class TestSimplifiedTerraformConfig:
         ), "Should use hashicorp AWS provider"
         assert 'version = "~> 5.0"' in content, "Should use AWS provider v5.x"
 
-    def test_default_vpc_usage(self, main_tf_template):
-        """Test default VPC data source configuration."""
+    def test_module_handles_networking(self, main_tf_template):
+        """Test that module handles networking configuration."""
         content = main_tf_template
 
-        # Check for default VPC data source
+        # Should NOT use direct VPC data sources (module handles networking)
         assert (
-            'data "aws_vpc" "default"' in content
-        ), "Should use default VPC data source"
-        assert "default = true" in content, "Should specify default VPC"
-
-        # Check for default subnets data source
+            'data "aws_vpc" "default"' not in content
+        ), "Should NOT use direct VPC data source (handled by module)"
         assert (
-            'data "aws_subnets" "default"' in content
-        ), "Should use default subnets data source"
-        assert "vpc-id" in content, "Should filter subnets by VPC ID"
+            'data "aws_subnets" "default"' not in content
+        ), "Should NOT use direct subnets data source (handled by module)"
 
-    def test_ecr_data_source_approach(self, main_tf_template):
-        """Test ECR repository data source vs resource approach."""
+        # Should pass networking configuration to module
+        assert "vpc_cidr" in content, "Should pass VPC CIDR to module"
+        assert (
+            "public_subnet_count" in content
+        ), "Should pass subnet configuration to module"
+
+    def test_module_handles_ecr(self, main_tf_template):
+        """Test that module handles ECR repository access."""
         content = main_tf_template
 
-        # Should use data source, not resource
+        # Should NOT use direct ECR data source (module handles this)
         assert (
-            'data "aws_ecr_repository" "main"' in content
-        ), "Should use ECR data source"
-        assert (
-            'resource "aws_ecr_repository"' not in content
-        ), "Should NOT create ECR resource"
+            'data "aws_ecr_repository" "main"' not in content
+        ), "Should NOT use direct ECR data source (handled by module)"
 
-        # Should reference data source in task definition
-        assert (
-            "data.aws_ecr_repository.main.repository_url" in content
-        ), "Should reference ECR data source"
+        # Module handles ECR repository access internally
 
-        # Should include comment explaining the approach
-        assert (
-            'CD workflow step "Ensure ECR repository exists"' in content
-        ), "Should document ECR creation approach"
-
-    def test_arm64_architecture_config(self, main_tf_template):
-        """Test ARM64 runtime platform configuration."""
+    def test_module_handles_runtime_platform(self, main_tf_template):
+        """Test that module handles runtime platform configuration."""
         content = main_tf_template
 
-        # Check for ARM64 runtime platform
-        assert "runtime_platform {" in content, "Should specify runtime platform"
-        assert 'operating_system_family = "LINUX"' in content, "Should use Linux OS"
+        # Should NOT have direct runtime platform config (module handles this)
         assert (
-            'cpu_architecture        = "ARM64"' in content
-        ), "Should use ARM64 architecture"
-
-        # Check for ARM64 comment
+            "runtime_platform {" not in content
+        ), "Should NOT specify runtime platform directly (handled by module)"
         assert (
-            "Use ARM64 architecture for better cost/performance" in content
-        ), "Should document ARM64 benefits"
+            'operating_system_family = "LINUX"' not in content
+        ), "Should NOT specify OS directly (handled by module)"
+        assert (
+            'cpu_architecture        = "ARM64"' not in content
+        ), "Should NOT specify architecture directly (handled by module)"
 
-    def test_java21_environment_variables(self, main_tf_template):
-        """Test Java 21 LTS environment variables in ECS task."""
+        # Module handles all runtime platform configuration internally
+
+    def test_module_handles_java_config(self, main_tf_template):
+        """Test that module handles Java-specific configuration."""
         content = main_tf_template
 
-        # Check for Java 21 LTS environment variables
+        # Should NOT have direct Java environment variables (module handles this)
         assert (
-            '"JAVA_VERSION"' in content
-        ), "Should set JAVA_VERSION environment variable"
-        assert 'value = "21"' in content, "Should set Java version to 21"
+            '"JAVA_VERSION"' not in content
+        ), "Should NOT set JAVA_VERSION directly (handled by module)"
         assert (
-            '"JAVA_DISTRIBUTION"' in content
-        ), "Should set JAVA_DISTRIBUTION environment variable"
-        assert '"amazon-corretto"' in content, "Should use Amazon Corretto distribution"
+            '"JAVA_DISTRIBUTION"' not in content
+        ), "Should NOT set JAVA_DISTRIBUTION directly (handled by module)"
+        assert (
+            "JAVA_OPTS" not in content
+        ), "Should NOT set JAVA_OPTS directly (handled by module)"
+        assert (
+            "JVM_ARGS" not in content
+        ), "Should NOT set JVM_ARGS directly (handled by module)"
 
-        # Check for Java 21 optimizations
-        assert "JAVA_OPTS" in content, "Should include JAVA_OPTS"
-        assert "UseContainerSupport" in content, "Should enable container support"
-        assert "UseG1GC" in content, "Should use G1 garbage collector"
-        assert "UseStringDeduplication" in content, "Should enable string deduplication"
-
-        # Check for JVM args
-        assert "JVM_ARGS" in content, "Should include JVM_ARGS"
-        assert (
-            "EnableDynamicAgentLoading" in content
-        ), "Should enable dynamic agent loading"
+        # Module handles all Java-specific environment variables and optimizations internally
 
     def test_complexity_reduction_validation(self, main_tf_template):
         """Test that simplified config achieves complexity reduction."""
         content = main_tf_template
         lines = content.split("\n")
 
-        # Should be around 300 lines (50% reduction from 600+)
+        # Should be much smaller now (under 100 lines vs 400+ before)
         assert (
-            len(lines) < 400
-        ), f"Simplified config should be under 400 lines, got {len(lines)}"
+            len(lines) < 100
+        ), f"Simplified config should be under 100 lines, got {len(lines)}"
         assert (
-            len(lines) > 250
+            len(lines) > 50
         ), f"Config should have substantial content, got {len(lines)}"
 
-        # Should not contain module references
-        assert 'module "' not in content, "Should not use terraform modules"
-        assert 'source = "git::' not in content, "Should not reference external modules"
+        # Should use shared modules (this is the new simplified approach)
+        assert 'module "muppet"' in content, "Should use shared muppet module"
+        assert "terraform-modules/" in content, "Should reference shared modules"
+        assert 'source = "git::' in content, "Should reference GitHub URL modules"
 
-    def test_direct_aws_resources(self, main_tf_template):
-        """Test that config uses direct AWS resources."""
+    def test_shared_module_usage(self, main_tf_template):
+        """Test that config uses shared modules instead of direct resources."""
         content = main_tf_template
 
-        # Check for direct AWS resources
-        required_resources = [
-            'resource "aws_security_group" "app"',
-            'resource "aws_ecs_cluster" "main"',
-            'resource "aws_cloudwatch_log_group" "app"',
-            'resource "aws_iam_role" "execution"',
-            'resource "aws_iam_role" "task"',
-            'resource "aws_ecs_task_definition" "app"',
-            'resource "aws_lb" "main"',
-            'resource "aws_lb_target_group" "app"',
-            'resource "aws_lb_listener" "app"',
-            'resource "aws_ecs_service" "app"',
-            'resource "aws_appautoscaling_target" "ecs_target"',
-            'resource "aws_appautoscaling_policy" "ecs_policy_cpu"',
-            'resource "aws_appautoscaling_policy" "ecs_policy_memory"',
+        # Should use shared module
+        assert 'module "muppet"' in content, "Should use shared muppet module"
+        assert (
+            "terraform-modules/muppet-java-micronaut" in content
+        ), "Should reference Java module"
+
+        # Should NOT contain direct AWS resources (they're in the module now)
+        direct_resources = [
+            'resource "aws_security_group"',
+            'resource "aws_ecs_cluster"',
+            'resource "aws_cloudwatch_log_group"',
+            'resource "aws_iam_role"',
+            'resource "aws_ecs_task_definition"',
+            'resource "aws_lb"',
+            'resource "aws_lb_target_group"',
+            'resource "aws_lb_listener"',
+            'resource "aws_ecs_service"',
+            'resource "aws_appautoscaling_target"',
+            'resource "aws_appautoscaling_policy"',
         ]
 
-        for resource in required_resources:
-            assert resource in content, f"Should contain {resource}"
+        for resource in direct_resources:
+            assert (
+                resource not in content
+            ), f"Should NOT contain direct resource {resource} (should be in module)"
 
-    def test_common_tags_configuration(self, main_tf_template):
-        """Test common tags configuration."""
+    def test_module_configuration_structure(self, main_tf_template):
+        """Test module configuration structure instead of common tags."""
         content = main_tf_template
 
-        # Check for common tags local
-        assert "locals {" in content, "Should define locals block"
-        assert "common_tags = {" in content, "Should define common_tags"
-
-        # Check for required tags
-        required_tags = [
-            "MuppetName",
-            "Environment",
-            "ManagedBy",
-            "Template",
-            "Language",
-            "Framework",
-            "JavaVersion",
-            "CreatedBy",
-        ]
-
-        for tag in required_tags:
-            assert tag in content, f"Should include {tag} tag"
-
-        # Check for Java 21 LTS tag
+        # Should NOT have locals block (that's in the module now)
         assert (
-            'JavaVersion   = "21-LTS"' in content
-        ), "Should tag with Java 21 LTS version"
+            "locals {" not in content
+        ), "Should NOT define locals block (handled by module)"
 
-    def test_health_check_configuration(self, main_tf_template):
-        """Test health check configuration."""
+        # Should have module configuration sections
+        assert (
+            "# Basic configuration" in content
+        ), "Should have basic configuration section"
+        assert (
+            "# Container configuration" in content
+        ), "Should have container configuration section"
+        assert (
+            "# Auto-scaling configuration" in content
+        ), "Should have auto-scaling configuration section"
+        assert "# TLS configuration" in content, "Should have TLS configuration section"
+
+    def test_module_handles_health_checks(self, main_tf_template):
+        """Test that module handles health check configuration."""
         content = main_tf_template
 
-        # Check for container health check
-        assert "healthCheck = {" in content, "Should define container health check"
+        # Should NOT have direct health check config (that's in the module now)
         assert (
-            "curl -f http://localhost:3000/health" in content
-        ), "Should check health endpoint"
-        assert "startPeriod = 120" in content, "Should allow startup time for Java apps"
+            "healthCheck = {" not in content
+        ), "Should NOT define container health check directly (handled by module)"
+        assert (
+            "health_check {" not in content
+        ), "Should NOT define ALB health check directly (handled by module)"
 
-        # Check for ALB health check
-        assert "health_check {" in content, "Should define ALB health check"
-        assert 'path                = "/health"' in content, "Should use /health path"
-        assert 'matcher             = "200"' in content, "Should expect 200 response"
+        # Module handles all health check configuration internally
 
-    def test_auto_scaling_configuration(self, main_tf_template):
-        """Test auto-scaling configuration."""
+    def test_module_handles_auto_scaling(self, main_tf_template):
+        """Test that module handles auto-scaling configuration."""
         content = main_tf_template
 
-        # Check for auto-scaling target
+        # Should NOT have direct auto-scaling resources (that's in the module now)
         assert (
-            'resource "aws_appautoscaling_target" "ecs_target"' in content
-        ), "Should define auto-scaling target"
+            'resource "aws_appautoscaling_target"' not in content
+        ), "Should NOT define auto-scaling target directly (handled by module)"
+        assert (
+            'resource "aws_appautoscaling_policy"' not in content
+        ), "Should NOT define auto-scaling policies directly (handled by module)"
 
-        # Check for CPU-based scaling
+        # Should pass auto-scaling parameters to module
         assert (
-            'resource "aws_appautoscaling_policy" "ecs_policy_cpu"' in content
-        ), "Should define CPU scaling policy"
+            "target_cpu_utilization" in content
+        ), "Should pass CPU utilization target to module"
         assert (
-            "ECSServiceAverageCPUUtilization" in content
-        ), "Should use CPU utilization metric"
-
-        # Check for memory-based scaling
-        assert (
-            'resource "aws_appautoscaling_policy" "ecs_policy_memory"' in content
-        ), "Should define memory scaling policy"
-        assert (
-            "ECSServiceAverageMemoryUtilization" in content
-        ), "Should use memory utilization metric"
+            "target_memory_utilization" in content
+        ), "Should pass memory utilization target to module"
 
     def test_template_variable_placeholders(self, main_tf_template):
         """Test that template contains proper variable placeholders."""

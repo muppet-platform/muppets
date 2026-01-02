@@ -35,48 +35,50 @@ class TestServiceUrlDiscovery:
         assert outputs_template.exists(), "Outputs template should exist"
 
     def test_service_url_outputs_generation(self, outputs_tf_template):
-        """Test service URL outputs generation."""
+        """Test service URL outputs generation using module outputs."""
         content = outputs_tf_template
 
-        # Check for load balancer DNS output (note the spacing in actual template)
+        # Check for load balancer DNS output using module
         assert (
             'output "load_balancer_dns"' in content
         ), "Should output load balancer DNS"
         assert (
-            "value       = aws_lb.main.dns_name" in content
-        ), "Should reference ALB DNS name"
+            "value       = module.muppet.alb_dns_name" in content
+        ), "Should reference module ALB DNS name"
         assert (
-            'description = "Load balancer DNS name (for easy copy/paste)"' in content
-        ), "Should describe DNS output"
+            'description = "Load balancer DNS name (legacy alias for alb_dns_name)"'
+            in content
+        ), "Should describe DNS output as legacy alias"
 
     def test_application_url_output(self, outputs_tf_template):
-        """Test application URL output generation."""
+        """Test application URL output generation using module outputs."""
         content = outputs_tf_template
 
-        # Check for application URL output (note the spacing)
+        # Check for application URL output using module
         assert 'output "application_url"' in content, "Should output application URL"
         assert (
-            'value       = "http://${aws_lb.main.dns_name}"' in content
-        ), "Should construct HTTP URL"
+            "value       = module.muppet.application_url" in content
+        ), "Should use module application URL"
         assert (
-            'description = "HTTP URL to access the application"' in content
-        ), "Should describe application URL"
+            'description = "URL to access the application (HTTPS by default)"'
+            in content
+        ), "Should describe application URL with HTTPS by default"
 
     def test_health_check_url_output(self, outputs_tf_template):
-        """Test health check URL output generation."""
+        """Test health check URL output generation using module outputs."""
         content = outputs_tf_template
 
-        # Check for health check URL output (note the spacing)
+        # Check for health check URL output using module
         assert 'output "health_check_url"' in content, "Should output health check URL"
         assert (
-            'value       = "http://${aws_lb.main.dns_name}/health"' in content
-        ), "Should construct health check URL"
+            "value       = module.muppet.health_check_url" in content
+        ), "Should use module health check URL"
         assert (
             'description = "Health check endpoint URL"' in content
         ), "Should describe health check URL"
 
     def test_deployment_info_output(self, outputs_tf_template):
-        """Test deployment info output for CI/CD integration."""
+        """Test deployment info output for CI/CD integration using module outputs."""
         content = outputs_tf_template
 
         # Check for deployment info output
@@ -85,34 +87,30 @@ class TestServiceUrlDiscovery:
             'description = "Deployment information for CI/CD pipelines"' in content
         ), "Should describe deployment info"
 
-        # Check for deployment info structure
+        # Check that it uses module deployment info
         assert (
-            "service_name      = aws_ecs_service.app.name" in content
-        ), "Should include service name in deployment info"
-        assert (
-            "load_balancer_dns = aws_lb.main.dns_name" in content
-        ), "Should include load balancer DNS in deployment info"
-        assert (
-            'health_check_path = "/health"' in content
-        ), "Should include health check path in deployment info"
-        assert (
-            "environment       = var.environment" in content
-        ), "Should include environment in deployment info"
+            "value       = module.muppet.deployment_info" in content
+        ), "Should use module deployment info"
 
-    def test_direct_resource_references(self, outputs_tf_template):
-        """Test that outputs use direct resource references instead of modules."""
+    def test_module_output_references(self, outputs_tf_template):
+        """Test that outputs use module references instead of direct resources."""
         content = outputs_tf_template
 
-        # Should use direct resource references
+        # Should use module references
         assert (
-            "aws_lb.main.dns_name" in content
-        ), "Should reference ALB resource directly"
+            "module.muppet.alb_dns_name" in content
+        ), "Should reference ALB DNS through module"
         assert (
-            "aws_ecs_service.app.name" in content
-        ), "Should reference ECS service directly"
+            "module.muppet.ecs_service_name" in content
+        ), "Should reference ECS service through module"
 
-        # Should not use module references
-        assert "module." not in content, "Should not reference terraform modules"
+        # Should not use direct resource references (they're in the module now)
+        assert (
+            "aws_lb.main.dns_name" not in content
+        ), "Should not reference ALB resource directly"
+        assert (
+            "aws_ecs_service.app.name" not in content
+        ), "Should not reference ECS service directly"
 
     def test_output_variable_substitution(self, outputs_tf_template):
         """Test that output template contains proper variable placeholders."""
@@ -126,10 +124,10 @@ class TestServiceUrlDiscovery:
         """Test that output descriptions are helpful for developers."""
         content = outputs_tf_template
 
-        # Check for helpful descriptions (matching actual content)
+        # Check for helpful descriptions (updated for module-based approach)
         descriptions = [
-            "Load balancer DNS name (for easy copy/paste)",
-            "HTTP URL to access the application",
+            "Load balancer DNS name (legacy alias for alb_dns_name)",
+            "URL to access the application (HTTPS by default)",
             "Health check endpoint URL",
             "Deployment information for CI/CD pipelines",
         ]
@@ -146,16 +144,8 @@ class TestServiceUrlDiscovery:
         # Should include structured deployment info for CI/CD
         assert "deployment_info" in content, "Should include deployment_info output"
 
-        # Should include all necessary information for CI/CD (matching actual content)
-        required_fields = [
-            "service_name",
-            "load_balancer_dns",
-            "health_check_path",
-            "environment",
-        ]
-
-        for field in required_fields:
-            assert field in content, f"Should include {field} in deployment info"
+        # Module deployment info contains all necessary fields internally
+        assert "deployment_info" in content, "Should include deployment_info output"
 
     def test_output_syntax_validation(self, outputs_tf_template):
         """Test that outputs template has valid terraform syntax structure."""
@@ -192,11 +182,12 @@ class TestServiceUrlDiscovery:
         """Test that outputs include helpful comments."""
         content = outputs_tf_template
 
-        # Should include explanatory comments (matching actual content)
+        # Should include explanatory comments for module-based approach
         assert (
-            "# Simplified outputs for {{muppet_name}}" in content
-        ), "Should include header with muppet name"
-        assert (
-            "# Provides essential information for developers and CI/CD" in content
-        ), "Should explain purpose"
+            "# Using shared module outputs for platform-managed infrastructure"
+            in content
+        ), "Should explain module-based approach"
         assert "# Application URLs" in content, "Should have section headers"
+        assert (
+            "# Legacy outputs for backward compatibility" in content
+        ), "Should document backward compatibility"

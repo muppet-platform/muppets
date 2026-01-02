@@ -1,5 +1,6 @@
 # {{muppet_name}} - Node.js Express Infrastructure
-# This file uses the shared muppet-node-express module for maximum resource reuse
+# This infrastructure is managed by the Muppet Platform using shared modules
+# Individual deployments only update the ECS service with new images
 
 terraform {
   required_version = ">= 1.5"
@@ -19,12 +20,13 @@ terraform {
 }
 
 provider "aws" {
-  region = "{{aws_region}}"
+  region = var.aws_region
 }
 
-# Use the shared Node.js Express muppet module
+# Use the shared Node.js Express muppet module from GitHub
+# This provides networking, fargate service, and Node.js-specific optimizations
 module "muppet" {
-  source = "../../terraform-modules/muppet-node-express"
+  source = "git::https://github.com/{{github_organization}}/muppets.git//terraform-modules/muppet-node-express?ref=v1.0.0"
   
   # Basic configuration
   muppet_name = var.muppet_name
@@ -40,7 +42,28 @@ module "muppet" {
   min_capacity = var.min_capacity
   max_capacity = var.max_capacity
   
+  # Node.js specific optimizations
+  target_cpu_utilization    = var.target_cpu_utilization
+  target_memory_utilization = var.target_memory_utilization
+  
+  # Networking configuration
+  vpc_cidr                 = var.vpc_cidr
+  public_subnet_count      = var.public_subnet_count
+  private_subnet_count     = var.private_subnet_count
+  
+  # TLS configuration
+  enable_https             = var.enable_https
+  certificate_arn          = var.certificate_arn
+  redirect_http_to_https   = var.redirect_http_to_https
+  ssl_policy              = var.ssl_policy
+  
+  # Monitoring and logging
+  log_retention_days = var.log_retention_days
+  
+  # Additional environment variables (merged with Node.js defaults)
+  additional_environment_variables = var.additional_environment_variables
+  
   # Cost management
-  cost_center  = "{{cost_center}}"
-  owner_email  = "{{owner_email}}"
+  cost_center = var.cost_center
+  owner_email = var.owner_email
 }

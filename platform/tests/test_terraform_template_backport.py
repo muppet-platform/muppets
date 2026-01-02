@@ -142,11 +142,10 @@ class TestTerraformTemplateBackport:
                     f'variable "{var}"' in variables_tf_content
                 ), f"Should have {var} variable"
 
-            # Should NOT have complex variables that caused issues
-            complex_vars = [
+            # Should NOT have overly complex variables that caused issues in the past
+            overly_complex_vars = [
                 "use_existing_vpc",
                 "existing_vpc_id",
-                "vpc_cidr",
                 "availability_zones",
                 "private_subnet_cidrs",
                 "public_subnet_cidrs",
@@ -167,10 +166,29 @@ class TestTerraformTemplateBackport:
                 "monthly_budget_limit",
             ]
 
-            for var in complex_vars:
+            for var in overly_complex_vars:
                 assert (
                     f'variable "{var}"' not in variables_tf_content
-                ), f"Should NOT have complex variable {var}"
+                ), f"Should NOT have overly complex variable {var}"
+
+            # Should have module-required variables (these are needed for the shared module)
+            module_vars = [
+                "vpc_cidr",
+                "public_subnet_count",
+                "private_subnet_count",
+                "target_cpu_utilization",
+                "target_memory_utilization",
+                "log_retention_days",
+                "enable_https",
+                "certificate_arn",
+                "redirect_http_to_https",
+                "ssl_policy",
+            ]
+
+            for var in module_vars:
+                assert (
+                    f'variable "{var}"' in variables_tf_content
+                ), f"Should have module-required variable {var}"
 
     def test_simplified_outputs_only(self):
         """Test that only simplified outputs are included."""

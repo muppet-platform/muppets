@@ -1,9 +1,14 @@
 # {{muppet_name}} - Node.js Express Infrastructure Outputs
-# All outputs come from the shared muppet-node-express module
+# Using shared module outputs for platform-managed infrastructure
 
-# Service URLs (for CD workflow)
+# Application URLs
+output "application_url" {
+  description = "URL to access the application (HTTPS by default)"
+  value       = module.muppet.application_url
+}
+
 output "service_url" {
-  description = "URL to access the service"
+  description = "Service URL (alias for application_url)"
   value       = module.muppet.service_url
 }
 
@@ -17,41 +22,89 @@ output "api_base_url" {
   value       = module.muppet.api_base_url
 }
 
-# Service information (for CD workflow)
-output "service_name" {
-  description = "Name of the ECS service"
-  value       = module.muppet.ecs_service_name
-}
-
-output "cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = module.muppet.ecs_cluster_name
-}
-
-# Load balancer information (for CD workflow)
-output "load_balancer_dns_name" {
+# Load Balancer Information
+output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
   value       = module.muppet.alb_dns_name
 }
 
-output "load_balancer_zone_id" {
+output "alb_zone_id" {
   description = "Zone ID of the Application Load Balancer"
   value       = module.muppet.alb_zone_id
 }
 
-# Container information (for CD workflow)
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = module.muppet.alb_arn
+}
+
+# Service Information
+output "ecs_service_name" {
+  description = "Name of the ECS service"
+  value       = module.muppet.ecs_service_name
+}
+
+output "ecs_cluster_name" {
+  description = "Name of the ECS cluster"
+  value       = module.muppet.ecs_cluster_name
+}
+
+output "task_definition_arn" {
+  description = "ARN of the task definition"
+  value       = module.muppet.task_definition_arn
+}
+
+# Networking Information
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.muppet.vpc_id
+}
+
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = module.muppet.private_subnet_ids
+}
+
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.muppet.public_subnet_ids
+}
+
+# Container Registry Information
 output "ecr_repository_url" {
-  description = "URL of the ECR repository"
+  description = "ECR repository URL"
   value       = module.muppet.ecr_repository_url
 }
 
-output "container_image" {
-  description = "Full container image URL with tag"
-  value       = "${module.muppet.ecr_repository_url}:${var.image_tag}"
+# TLS Information
+output "custom_domain_url" {
+  description = "Custom domain URL (if configured)"
+  value       = module.muppet.custom_domain_url
 }
 
-# Complete deployment information (for CD workflow)
+output "tls_enabled" {
+  description = "Whether TLS/HTTPS is enabled"
+  value       = module.muppet.tls_enabled
+}
+
+# Deployment Information for CI/CD
 output "deployment_info" {
-  description = "Complete deployment information for CI/CD"
+  description = "Deployment information for CI/CD pipelines"
   value       = module.muppet.deployment_info
+}
+
+# Legacy outputs for backward compatibility
+output "load_balancer_dns" {
+  description = "Load balancer DNS name (legacy alias for alb_dns_name)"
+  value       = module.muppet.alb_dns_name
+}
+
+output "service_name" {
+  description = "Name of the ECS service (legacy alias for ecs_service_name)"
+  value       = module.muppet.ecs_service_name
+}
+
+output "cluster_name" {
+  description = "Name of the ECS cluster (legacy alias for ecs_cluster_name)"
+  value       = module.muppet.ecs_cluster_name
 }

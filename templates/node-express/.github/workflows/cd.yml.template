@@ -1,8 +1,11 @@
 name: CD - {{muppet_name}}
 
 on:
-  push:
-    branches: [main, develop]
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
@@ -11,105 +14,27 @@ on:
         default: 'development'
         type: choice
         options:
-          - development
-          - staging
-          - production
+        - development
+        - staging
+        - production
 
 env:
   AWS_REGION: {{aws_region}}
-  ECR_REPOSITORY: {{muppet_name}}
+  MUPPET_NAME: {{muppet_name}}
   NODE_VERSION: '20'
 
 jobs:
-  # Build and test job
-  build-and-test:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Run TypeScript compiler check
-        run: npx tsc --noEmit
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: {{muppet_name}}-coverage
-
-      - name: Build application
-        run: npm run build
-
-      - name: Build Docker image (local test only)
-        run: docker build -t {{muppet_name}} .
-
-      - name: Test Docker image
-        run: |
-          # Start container in background
-          docker run -d --name test-container -p 3000:3000 {{muppet_name}}
-          
-          # Wait for container to start
-          sleep 10
-          
-          # Test health endpoint
-          curl -f http://localhost:3000/health
-          
-          # Stop and remove container
-          docker stop test-container
-          docker rm test-container
-
-  # Determine deployment environment
-  determine-environment:
-    runs-on: ubuntu-latest
-    outputs:
-      environment: ${{ steps.env.outputs.environment }}
-      deploy: ${{ steps.env.outputs.deploy }}
-    
-    steps:
-      - name: Determine environment
-        id: env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "environment=development" >> $GITHUB_OUTPUT
-            echo "deploy=false" >> $GITHUB_OUTPUT
-          fi
-
-  # Deploy to environment
   deploy:
-    needs: [build-and-test, determine-environment]
-    if: needs.determine-environment.outputs.deploy == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ needs.determine-environment.outputs.environment }}
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-      image-digest: ${{ steps.build.outputs.digest }}
+    timeout-minutes: 30
+    environment: ${{ github.event.inputs.environment || 'development' }}
+    # Only run if CI succeeded (for workflow_run) or if manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
+    permissions:
+      contents: read
+      actions: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -133,178 +58,64 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up OpenTofu
-        uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: '1.6.0'
-
-      - name: Initialize OpenTofu
-        working-directory: ./terraform
-        run: |
-          tofu init \
-            -backend-config="bucket=muppet-platform-terraform-state" \
-            -backend-config="key=muppets/{{muppet_name}}/${{ needs.determine-environment.outputs.environment }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}"
-
-      - name: Plan OpenTofu changes
-        working-directory: ./terraform
-        run: |
-          tofu plan \
-            -var="environment=${{ needs.determine-environment.outputs.environment }}" \
-            -var="image_tag=${{ github.sha }}" \
-            -var="aws_region=${{ env.AWS_REGION }}" \
-            -out=tfplan
-
-      - name: Apply OpenTofu changes (creates ECR repository)
-        working-directory: ./terraform
-        run: tofu apply -auto-approve tfplan
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{date 'YYYYMMDD'}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.MUPPET_NAME }} || \
+          aws ecr create-repository --repository-name ${{ env.MUPPET_NAME }} --image-scanning-configuration scanOnPush=true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            NODE_VERSION=${{ env.NODE_VERSION }}
-            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-            VCS_REF=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
-
-      - name: Run security scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Get service information
-        id: service-info
-        working-directory: ./terraform
         run: |
-          SERVICE_URL=$(tofu output -raw service_url)
-          HEALTH_URL=$(tofu output -raw health_check_url)
-          API_URL=$(tofu output -raw api_base_url)
-          
-          echo "service-url=$SERVICE_URL" >> $GITHUB_OUTPUT
-          echo "health-url=$HEALTH_URL" >> $GITHUB_OUTPUT
-          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          IMAGE_TAG=${{ steps.login-ecr.outputs.registry }}/${{ env.MUPPET_NAME }}:${{ github.sha }}
+          docker buildx build \
+            --platform linux/arm64 \
+            --push \
+            -t $IMAGE_TAG .
+          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Update ECS service
         run: |
-          CLUSTER_NAME=$(cd terraform && tofu output -raw cluster_name)
-          SERVICE_NAME=$(cd terraform && tofu output -raw service_name)
+          CLUSTER_NAME="${{ env.MUPPET_NAME }}-cluster"
+          SERVICE_NAME="${{ env.MUPPET_NAME }}"
           
+          echo "🔄 Updating ECS service with new image..."
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
             --service $SERVICE_NAME \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
-
-      - name: Wait for deployment
-        run: |
-          CLUSTER_NAME=$(cd terraform && tofu output -raw cluster_name)
-          SERVICE_NAME=$(cd terraform && tofu output -raw service_name)
+            --force-new-deployment
           
-          echo "Waiting for service to stabilize..."
+          echo "⏳ Waiting for deployment to stabilize..."
           aws ecs wait services-stable \
             --cluster $CLUSTER_NAME \
-            --services $SERVICE_NAME \
-            --region ${{ env.AWS_REGION }}
+            --services $SERVICE_NAME
 
-      - name: Health check
+      - name: Deployment complete
         run: |
-          HEALTH_URL="${{ steps.service-info.outputs.health-url }}"
-          echo "Checking health at: $HEALTH_URL"
+          # Get the load balancer DNS name
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names ${{ env.MUPPET_NAME }}-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
           
-          # Wait up to 5 minutes for health check to pass
-          for i in {1..30}; do
-            if curl -f -s "$HEALTH_URL" > /dev/null; then
-              echo "✅ Health check passed!"
-              break
-            else
-              echo "⏳ Health check attempt $i/30 failed, retrying in 10s..."
-              sleep 10
-            fi
-            
-            if [ $i -eq 30 ]; then
-              echo "❌ Health check failed after 5 minutes"
-              exit 1
-            fi
-          done
-
-      - name: Run smoke tests
-        run: |
-          API_URL="${{ steps.service-info.outputs.api-url }}"
-          
-          echo "Running smoke tests against: $API_URL"
-          
-          # Test API root endpoint
-          curl -f -s "$API_URL" | jq '.success' | grep -q true
-          echo "✅ API root endpoint test passed"
-          
-          # Test items endpoint
-          curl -f -s "$API_URL/items" | jq '.success' | grep -q true
-          echo "✅ Items endpoint test passed"
-
-      - name: Deployment summary
-        run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Service:** {{muppet_name}}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Service URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service:** ${{ steps.service-info.outputs.service-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Health Check:** ${{ steps.service-info.outputs.health-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **API:** ${{ steps.service-info.outputs.api-url }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ✅ Deployment Status" >> $GITHUB_STEP_SUMMARY
-          echo "- Build: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- Tests: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- Security Scan: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- Infrastructure: ✅ Applied" >> $GITHUB_STEP_SUMMARY
-          echo "- Health Check: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- Smoke Tests: ✅ Passed" >> $GITHUB_STEP_SUMMARY
-
-  # Notify on deployment failure
-  notify-failure:
-    needs: [build-and-test, determine-environment, deploy]
-    if: failure() && needs.determine-environment.outputs.deploy == 'true'
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Notify deployment failure
-        run: |
-          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Service:** {{muppet_name}}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Please check the workflow logs for details and retry the deployment."
+          echo "✅ Deployment successful"
+          echo "🚀 Application deployed with image: ${{ steps.build.outputs.image-tag }}"
+          echo ""
+          echo "🌐 Your service is available at:"
+          echo "   http://${ALB_DNS}"
+          echo "   http://${ALB_DNS}/health"
+          echo ""
+          echo "📋 Service Details:"
+          echo "   Environment: ${{ github.event.inputs.environment || 'development' }}"
+          echo "   Region: ${{ env.AWS_REGION }}"
+          echo "   Cluster: ${{ env.MUPPET_NAME }}-cluster"
+          echo "   Service: ${{ env.MUPPET_NAME }}"
+          echo ""
+          echo "ℹ️  Infrastructure is managed by the Muppet Platform"
+          echo "   All infrastructure changes should be made through the platform"

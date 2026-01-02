@@ -1,5 +1,7 @@
 # {{muppet_name}} - Node.js Express Infrastructure Variables
+# All variables from the shared module with template-specific defaults
 
+# Required Configuration
 variable "muppet_name" {
   description = "Name of the muppet service"
   type        = string
@@ -18,6 +20,26 @@ variable "aws_region" {
   default     = "{{aws_region}}"
 }
 
+# Networking Configuration
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "public_subnet_count" {
+  description = "Number of public subnets to create"
+  type        = number
+  default     = 2
+}
+
+variable "private_subnet_count" {
+  description = "Number of private subnets to create"
+  type        = number
+  default     = 2
+}
+
+# Container Configuration
 variable "image_tag" {
   description = "Docker image tag to deploy"
   type        = string
@@ -36,6 +58,7 @@ variable "memory" {
   default     = 512
 }
 
+# Auto-scaling Configuration
 variable "min_capacity" {
   description = "Minimum number of tasks"
   type        = number
@@ -45,5 +68,105 @@ variable "min_capacity" {
 variable "max_capacity" {
   description = "Maximum number of tasks"
   type        = number
-  default     = 3
+  default     = 10
+}
+
+variable "target_cpu_utilization" {
+  description = "Target CPU utilization for auto-scaling"
+  type        = number
+  default     = 70
+}
+
+variable "target_memory_utilization" {
+  description = "Target memory utilization for auto-scaling"
+  type        = number
+  default     = 80
+}
+
+# Monitoring Configuration
+variable "log_retention_days" {
+  description = "CloudWatch log retention in days"
+  type        = number
+  default     = 7
+}
+
+# TLS Configuration (TLS-by-default enabled)
+variable "enable_https" {
+  description = "Enable HTTPS listener on the load balancer"
+  type        = bool
+  default     = true
+}
+
+variable "certificate_arn" {
+  description = "ARN of the SSL certificate for HTTPS listener"
+  type        = string
+  default     = ""
+}
+
+variable "domain_name" {
+  description = "Custom domain name for the muppet (e.g., muppet-name.s3u.dev)"
+  type        = string
+  default     = ""
+}
+
+variable "zone_id" {
+  description = "Route 53 hosted zone ID for DNS record creation"
+  type        = string
+  default     = ""
+}
+
+variable "redirect_http_to_https" {
+  description = "Redirect HTTP traffic to HTTPS"
+  type        = bool
+  default     = true
+}
+
+variable "ssl_policy" {
+  description = "SSL policy for HTTPS listener"
+  type        = string
+  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+}
+
+variable "create_dns_record" {
+  description = "Create Route 53 DNS record for custom domain"
+  type        = bool
+  default     = false
+}
+
+# Extension Points
+variable "additional_environment_variables" {
+  description = "Additional environment variables to pass to the container"
+  type        = map(string)
+  default     = {}
+}
+
+variable "additional_iam_policy_statements" {
+  description = "Additional IAM policy statements for the task role"
+  type        = list(any)
+  default     = []
+}
+
+variable "additional_security_group_rules" {
+  description = "Additional security group rules for the ECS service"
+  type = list(object({
+    type        = string
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = list(string)
+  }))
+  default = []
+}
+
+# Cost Management
+variable "cost_center" {
+  description = "Cost center for billing allocation"
+  type        = string
+  default     = "engineering"
+}
+
+variable "owner_email" {
+  description = "Email address of the service owner"
+  type        = string
+  default     = ""
 }
