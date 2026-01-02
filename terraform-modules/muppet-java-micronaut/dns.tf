@@ -44,11 +44,6 @@ output "http_endpoint" {
   value       = "http://${module.fargate_service.load_balancer_dns_name}"
 }
 
-output "tls_enabled" {
-  description = "Whether TLS is enabled for this muppet"
-  value       = var.enable_https
-}
-
 output "certificate_arn_used" {
   description = "Certificate ARN used for TLS (if enabled)"
   value       = var.enable_https ? var.certificate_arn : null
