@@ -1,4 +1,4 @@
-name: CI - {{muppet_name}}
+name: CI
 
 on:
   push:

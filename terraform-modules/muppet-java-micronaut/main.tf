@@ -102,7 +102,8 @@ module "fargate_service" {
 
 # Common tags for all Java Micronaut muppets
 locals {
-  common_tags = {
+  # Base tags with all values
+  base_tags = {
     MuppetName    = var.muppet_name
     Environment   = var.environment
     ManagedBy     = "muppet-platform"
@@ -116,5 +117,11 @@ locals {
     Owner         = var.owner_email
     Project       = var.muppet_name
     IaC           = "opentofu"
+  }
+  
+  # Filter out empty values to prevent AWS tagging errors
+  common_tags = {
+    for key, value in local.base_tags : key => value
+    if value != null && value != ""
   }
 }

@@ -1,4 +1,4 @@
-name: CD - {{muppet_name}}
+name: CD
 
 on:
   workflow_run:
