@@ -1,4 +1,3 @@
-# Simplified CI workflow for {{muppet_name}}
 name: CI
 
 on:
@@ -31,32 +30,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build and test
-        run: |
-          chmod +x ./gradlew
-          ./gradlew build test --no-daemon
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+
+      - name: Build JAR
+        run: ./gradlew shadowJar --no-daemon
           
-      - name: Prepare JAR for Docker
-        run: |
-          # Copy the shadow JAR to the expected location for Docker
-          cp build/libs/*-all.jar build/libs/app.jar
-          
-      - name: Upload build artifacts
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
-          path: |
-            build/libs/app.jar
-            Dockerfile
-            terraform/
+          name: app-jar
+          path: build/libs/*-all.jar
           retention-days: 1
-          
-      - name: Build Docker image
-        run: docker build -t ${{ github.repository }}:${{ github.sha }} .
-
-      - name: Basic security scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'

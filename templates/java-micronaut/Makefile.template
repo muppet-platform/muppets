@@ -1,199 +1,41 @@
 # {{muppet_name}} Muppet Development Makefile
 
-.PHONY: help setup build run stop test clean lint format check-deps
+.PHONY: help setup build test run clean
 
 # Default target
 help:
 	@echo "{{muppet_name}} Muppet Development Commands"
 	@echo "=========================================="
 	@echo ""
-	@echo "Setup and Installation:"
 	@echo "  setup          Set up local development environment"
-	@echo "  check-deps     Check if all dependencies are installed"
-	@echo ""
-	@echo "Development:"
 	@echo "  build          Build JAR and Docker image"
-	@echo "  run            Start on Rancher Desktop (Docker)"
-	@echo "  run-dev        Start development server (Gradle)"
-	@echo "  run-compose    Run with Docker Compose"
-	@echo "  stop           Stop running services"
-	@echo "  logs           View application logs"
-	@echo ""
-	@echo "Testing:"
 	@echo "  test           Run all tests"
-	@echo "  test-cov       Run tests with coverage report"
-	@echo "  test-watch     Run tests in watch mode"
+	@echo "  run            Start development server"
+	@echo "  clean          Clean build artifacts"
 	@echo ""
-	@echo "Code Quality:"
-	@echo "  check          Run all quality checks"
-	@echo ""
-	@echo "Utilities:"
-	@echo "  clean          Clean build artifacts and containers"
-	@echo "  shell          Open shell in running container"
-	@echo "  deps           Show dependency tree"
 
 # Setup and Installation
 setup:
 	@echo "Setting up {{muppet_name}} development environment..."
 	@./scripts/init.sh
 
-check-deps:
-	@echo "Checking dependencies..."
-	@command -v java >/dev/null 2>&1 || { echo "❌ Java not found. Please install Amazon Corretto 21."; exit 1; }
-	@java -version 2>&1 | grep -q "21" || { echo "❌ Java 21 LTS required. Current: $$(java -version 2>&1 | head -n1)"; exit 1; }
-	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found. Please install Rancher Desktop and enable dockerd."; echo "   1. Install Rancher Desktop"; echo "   2. Go to Preferences → Container Engine"; echo "   3. Select 'dockerd (moby)'"; echo "   4. Restart Rancher Desktop"; exit 1; }
-	@docker info >/dev/null 2>&1 || { echo "❌ Docker not running. Please start Rancher Desktop."; exit 1; }
-	@./gradlew --version >/dev/null 2>&1 || { echo "❌ Gradle wrapper not working. Run 'make setup' first."; exit 1; }
-	@echo "✅ All dependencies are installed and compatible"
-	@echo "✅ Rancher Desktop is running and ready"
-
 # Development
 build:
 	@echo "Building {{muppet_name}}..."
-	@./scripts/build.sh
+	@./gradlew shadowJar
+	@cp build/libs/*-all.jar build/libs/app.jar
+	@docker build -t {{muppet_name}}:latest .
 
-run: check-deps build
-	@echo "Starting {{muppet_name}} on Rancher Desktop..."
-	@./scripts/run.sh --docker
-
-run-dev: check-deps
-	@echo "Starting {{muppet_name}} development server (Gradle)..."
-	@./scripts/run.sh --gradle
-
-run-aws: check-deps build
-	@echo "Starting {{muppet_name}} with LocalStack (AWS services)..."
-	@if curl -s http://localhost:4566/_localstack/health >/dev/null 2>&1; then \
-		echo "✅ LocalStack already running on port 4566, using existing instance"; \
-		echo "🔗 LocalStack Health: http://localhost:4566/_localstack/health"; \
-		AWS_ENDPOINT_OVERRIDE=http://localhost:4566 docker-compose -f docker-compose.local.yml up {{muppet_name}}-standalone --build; \
-	else \
-		echo "🚀 Starting new LocalStack instance"; \
-		docker-compose -f docker-compose.local.yml --profile full-stack up --build; \
-	fi
-
-run-compose: run-aws
-	@echo "Alias for 'make run-aws' - starting with LocalStack..."
-
-stop:
-	@echo "Stopping {{muppet_name}} services..."
-	@pkill -f "{{muppet_name}}" || true
-	@docker stop {{muppet_name}}-dev 2>/dev/null || true
-	@docker-compose -f docker-compose.local.yml down 2>/dev/null || true
-
-logs:
-	@echo "Viewing {{muppet_name}} logs..."
-	@if docker ps | grep -q {{muppet_name}}-dev; then \
-		docker logs -f {{muppet_name}}-dev; \
-	elif docker-compose -f docker-compose.local.yml ps | grep -q Up; then \
-		docker-compose -f docker-compose.local.yml logs -f; \
-	else \
-		echo "No running containers found. Check with 'make run-docker' or 'make run-compose'"; \
-	fi
-
-# Testing
 test:
 	@echo "Running tests..."
-	@./scripts/test.sh
+	@./gradlew test
 
-test-cov:
-	@echo "Running tests with coverage..."
-	@./gradlew test jacocoTestReport
-	@echo "Coverage report: file://$(PWD)/build/reports/jacoco/test/html/index.html"
-
-test-watch:
-	@echo "Running tests in watch mode..."
-	@./gradlew test --continuous
-
-# Code Quality
-check: test
-	@echo "Running all quality checks..."
-	@./gradlew check
-	@echo "✅ All quality checks passed"
+run:
+	@echo "Starting {{muppet_name}} development server..."
+	@./scripts/run.sh
 
 # Utilities
 clean:
-	@echo "Cleaning up build artifacts and containers..."
+	@echo "Cleaning up build artifacts..."
 	@./gradlew clean
 	@docker rmi {{muppet_name}}:latest 2>/dev/null || true
-	@docker-compose -f docker-compose.local.yml down -v 2>/dev/null || true
-	@docker system prune -f
-
-shell:
-	@echo "Opening shell in {{muppet_name}} container..."
-	@if docker ps | grep -q {{muppet_name}}-dev; then \
-		docker exec -it {{muppet_name}}-dev /bin/bash; \
-	elif docker-compose -f docker-compose.local.yml ps | grep -q Up; then \
-		docker-compose -f docker-compose.local.yml exec app /bin/bash; \
-	else \
-		echo "No running containers found. Start with 'make run-docker' or 'make run-compose' first"; \
-	fi
-
-deps:
-	@echo "Showing dependency tree..."
-	@./gradlew dependencies --configuration runtimeClasspath
-
-# Development workflow shortcuts
-dev: setup build run
-	@echo "Development environment is ready on Rancher Desktop!"
-	@echo "{{muppet_name}}: http://localhost:3000"
-	@echo "Health: http://localhost:3000/health"
-	@echo "Metrics: http://localhost:3000/metrics"
-
-dev-gradle: setup run-dev
-	@echo "Development environment is ready (Gradle mode)!"
-	@echo "{{muppet_name}}: http://localhost:3000"
-	@echo "Health: http://localhost:3000/health"
-
-restart: stop run
-	@echo "{{muppet_name}} restarted on Rancher Desktop!"
-
-# Production-like testing
-prod: build run
-	@echo "Running {{muppet_name}} in production mode on Rancher Desktop!"
-	@echo "{{muppet_name}}: http://localhost:3000"
-
-# CI-like checks
-ci: format check
-	@echo "All CI checks passed!"
-
-# Quick health check
-health:
-	@echo "Checking {{muppet_name}} health..."
-	@curl -s http://localhost:3000/health | jq . || echo "Service not running or unhealthy"
-
-# Show application info
-info:
-	@echo "{{muppet_name}} Application Info:"
-	@curl -s http://localhost:3000/info | jq . || echo "Service not running"
-
-# Performance testing
-perf:
-	@echo "Running basic performance test..."
-	@command -v ab >/dev/null 2>&1 || { echo "❌ Apache Bench (ab) not found. Install with: brew install httpd"; exit 1; }
-	@ab -n 1000 -c 10 http://localhost:3000/health
-
-# Database operations (if applicable)
-db-migrate:
-	@echo "Running database migrations..."
-	@./gradlew flywayMigrate 2>/dev/null || echo "No database migrations configured"
-
-db-reset:
-	@echo "Resetting database..."
-	@./gradlew flywayClean flywayMigrate 2>/dev/null || echo "No database migrations configured"
-
-# Security scanning
-security:
-	@echo "Running security checks..."
-	@./gradlew dependencyCheckAnalyze 2>/dev/null || echo "Security scanning not configured"
-
-# Documentation
-docs:
-	@echo "Generating documentation..."
-	@./gradlew javadoc
-	@echo "Documentation: file://$(PWD)/build/docs/javadoc/index.html"
-
-# Release preparation
-release-check: ci security
-	@echo "Release readiness check..."
-	@./gradlew build -x test
-	@echo "✅ Ready for release!"
