@@ -39,16 +39,48 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Amazon Corretto JDK 21
+      - name: Set up Amazon Corretto JDK 21 (if manually triggered)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'corretto'
 
-      - name: Build JAR
+      - name: Cache Gradle packages (if manually triggered)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Download JAR artifact (if triggered by CI)
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Build JAR (if manually triggered)
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          ./gradlew shadowJar
-          cp build/libs/*-all.jar build/libs/app.jar
+          chmod +x ./gradlew
+          ./gradlew shadowJar --no-daemon
+
+      - name: Prepare JAR for Docker
+        run: |
+          # Rename downloaded JAR to expected name or copy built JAR
+          if [ -f build/libs/*-all.jar ]; then
+            mv build/libs/*-all.jar build/libs/app.jar
+          else
+            echo "No JAR file found"
+            exit 1
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
