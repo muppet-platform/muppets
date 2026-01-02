@@ -14,13 +14,6 @@ resource "aws_route53_record" "muppet_domain" {
     zone_id                = module.fargate_service.load_balancer_zone_id
     evaluate_target_health = true
   }
-  
-  tags = merge(local.common_tags, {
-    Name = "${var.muppet_name}-dns-record"
-    Domain = var.domain_name
-    MuppetName = var.muppet_name
-    Purpose = "tls-endpoint"
-  })
 }
 
 # Output the DNS record information
