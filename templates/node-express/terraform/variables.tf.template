@@ -90,11 +90,11 @@ variable "log_retention_days" {
   default     = 7
 }
 
-# TLS Configuration (TLS-by-default enabled)
+# TLS Configuration (disabled by default until wildcard certificate is configured)
 variable "enable_https" {
   description = "Enable HTTPS listener on the load balancer"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "certificate_arn" {
