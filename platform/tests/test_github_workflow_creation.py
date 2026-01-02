@@ -130,9 +130,7 @@ jobs:
             assert (
                 "test-and-build:" in ci_content
             ), "CI workflow should have single test-and-build job"
-            assert (
-                "shadowJar" in ci_content
-            ), "CI workflow should build shadow JAR"
+            assert "shadowJar" in ci_content, "CI workflow should build shadow JAR"
             assert (
                 "upload-artifact" in ci_content
             ), "CI workflow should upload JAR artifact"
@@ -259,9 +257,7 @@ jobs:
             assert (
                 "test-and-build:" in ci_content
             ), "Should have single test-and-build job"
-            assert (
-                "shadowJar" in ci_content
-            ), "Should build shadow JAR"
+            assert "shadowJar" in ci_content, "Should build shadow JAR"
 
     @pytest.mark.asyncio
     async def test_end_to_end_muppet_creation_includes_workflows(self):

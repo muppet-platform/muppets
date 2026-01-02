@@ -150,9 +150,18 @@ jobs:
           CLUSTER_NAME="${{ env.MUPPET_NAME }}-cluster"
           SERVICE_NAME="${{ env.MUPPET_NAME }}"
           
+          # Get the latest task definition for this service
+          LATEST_TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition $SERVICE_NAME \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          echo "Updating ECS service to use task definition: $LATEST_TASK_DEF"
+          
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
             --service $SERVICE_NAME \
+            --task-definition $LATEST_TASK_DEF \
             --force-new-deployment
           
           aws ecs wait services-stable \
