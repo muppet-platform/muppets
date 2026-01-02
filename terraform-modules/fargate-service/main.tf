@@ -97,10 +97,10 @@ resource "aws_ecs_task_definition" "main" {
     }
   ])
 
-  # Use ARM64 architecture for better cost/performance ratio
+  # Use X86_64 architecture for faster Docker builds and better compatibility
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "ARM64"
+    cpu_architecture        = "X86_64"
   }
 
   tags = var.tags

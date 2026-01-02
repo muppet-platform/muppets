@@ -111,7 +111,7 @@ locals {
     Language      = "java"
     Framework     = "micronaut"
     JavaVersion   = "21-LTS"
-    Architecture  = "ARM64"
+    Architecture  = "X86_64"
     CreatedBy     = "muppet-java-micronaut-module"
     CostCenter    = var.cost_center
     Owner         = var.owner_email

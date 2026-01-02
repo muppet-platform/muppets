@@ -111,7 +111,7 @@ locals {
     Language      = "nodejs"
     Framework     = "express"
     NodeVersion   = "20-LTS"
-    Architecture  = "ARM64"
+    Architecture  = "X86_64"
     CreatedBy     = "muppet-node-express-module"
     CostCenter    = var.cost_center
     Owner         = var.owner_email
