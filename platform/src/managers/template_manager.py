@@ -377,11 +377,25 @@ class TemplateManager:
             missing_core_files = []
             for file_path in core_files:
                 full_path = template_metadata.template_path / file_path
-                if not full_path.exists() and not any(
-                    (template_metadata.template_path / p).exists()
-                    for p in template_metadata.template_path.rglob("*")
-                    if file_path.rstrip("/") in str(p)
-                ):
+                
+                # Check if it's a direct file
+                if full_path.exists():
+                    continue
+                    
+                # Check if it's a directory
+                if full_path.is_dir():
+                    continue
+                    
+                # For files, check if any file in the template matches the pattern
+                found_match = False
+                for template_file in template_metadata.template_path.rglob("*"):
+                    if template_file.is_file():
+                        rel_path = template_file.relative_to(template_metadata.template_path)
+                        if str(rel_path) == file_path or file_path.rstrip("/") in str(rel_path):
+                            found_match = True
+                            break
+                
+                if not found_match:
                     missing_core_files.append(file_path)
 
             if missing_core_files:
