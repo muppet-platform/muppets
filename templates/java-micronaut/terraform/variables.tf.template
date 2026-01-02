@@ -90,29 +90,29 @@ variable "log_retention_days" {
   default     = 7
 }
 
-# TLS Configuration (disabled by default until wildcard certificate is configured)
+# TLS Configuration (TLS-by-default with wildcard certificate)
 variable "enable_https" {
   description = "Enable HTTPS listener on the load balancer"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "certificate_arn" {
   description = "ARN of the SSL certificate for HTTPS listener"
   type        = string
-  default     = ""
+  default     = "arn:aws:acm:us-west-2:218846826781:certificate/35aac1b2-4958-4e40-971e-8f6ab8b0a3de"
 }
 
 variable "domain_name" {
   description = "Custom domain name for the muppet (e.g., muppet-name.s3u.dev)"
   type        = string
-  default     = ""
+  default     = "{{muppet_name}}.s3u.dev"
 }
 
 variable "zone_id" {
   description = "Route 53 hosted zone ID for DNS record creation"
   type        = string
-  default     = ""
+  default     = "Z01284891NRMNOB6Q86G3"
 }
 
 variable "redirect_http_to_https" {
@@ -130,7 +130,7 @@ variable "ssl_policy" {
 variable "create_dns_record" {
   description = "Create Route 53 DNS record for custom domain"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # Extension Points
