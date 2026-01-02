@@ -68,9 +68,8 @@ template_files:
     - gradlew.bat
     - gradle/
     - .gitignore.template      # Java specific gitignore patterns
-    - scripts/                 # Essential scripts only (build, run, test, init)
+    - scripts/                 # Essential scripts only (init, run)
     - README.template.md
-    - docker-compose.local.yml.template
     - Makefile.template
     - Dockerfile.template      # ARM64 optimized for Java 21 LTS
     - .env.local               # Local development environment variables

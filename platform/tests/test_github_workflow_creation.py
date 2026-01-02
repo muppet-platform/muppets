@@ -126,10 +126,16 @@ jobs:
                 "distribution: 'corretto'" in ci_content
             ), "CI workflow should use Amazon Corretto"
 
-            # Verify security scanning is integrated into CI workflow
+            # Verify simplified CI workflow structure
             assert (
-                "trivy-action" in ci_content
-            ), "CI workflow should include security scanning"
+                "test-and-build:" in ci_content
+            ), "CI workflow should have single test-and-build job"
+            assert (
+                "shadowJar" in ci_content
+            ), "CI workflow should build shadow JAR"
+            assert (
+                "upload-artifact" in ci_content
+            ), "CI workflow should upload JAR artifact"
 
     @pytest.mark.asyncio
     async def test_push_template_code_includes_workflows(
@@ -249,8 +255,13 @@ jobs:
                 "distribution: 'corretto'" in ci_content
             ), "Should use Amazon Corretto"
 
-            # Should have security scanning integrated
-            assert "trivy-action" in ci_content, "Should include security scanning"
+            # Should have simplified CI workflow structure
+            assert (
+                "test-and-build:" in ci_content
+            ), "Should have single test-and-build job"
+            assert (
+                "shadowJar" in ci_content
+            ), "Should build shadow JAR"
 
     @pytest.mark.asyncio
     async def test_end_to_end_muppet_creation_includes_workflows(self):
