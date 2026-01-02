@@ -23,6 +23,12 @@ variable "environment" {
   }
 }
 
+variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default     = "us-west-2"
+}
+
 # Networking Configuration (with sensible defaults)
 variable "vpc_cidr" {
   description = "CIDR block for VPC"

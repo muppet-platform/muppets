@@ -31,6 +31,7 @@ module "muppet" {
   # Basic configuration
   muppet_name = var.muppet_name
   environment = var.environment
+  aws_region  = var.aws_region
   
   # Container configuration
   image_tag = var.image_tag
@@ -53,8 +54,11 @@ module "muppet" {
   # TLS configuration
   enable_https             = var.enable_https
   certificate_arn          = var.certificate_arn
+  domain_name              = var.domain_name
+  zone_id                  = var.zone_id
   redirect_http_to_https   = var.redirect_http_to_https
   ssl_policy              = var.ssl_policy
+  create_dns_record        = var.create_dns_record
   
   # Monitoring and logging
   log_retention_days = var.log_retention_days
