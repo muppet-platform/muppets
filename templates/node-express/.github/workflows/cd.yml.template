@@ -81,18 +81,55 @@ jobs:
             -t $IMAGE_TAG .
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.6.0
+
+      - name: Deploy infrastructure
+        working-directory: terraform
+        env:
+          TF_VAR_muppet_name: ${{ env.MUPPET_NAME }}
+          TF_VAR_environment: ${{ github.event.inputs.environment || 'development' }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_LOG: DEBUG
+        run: |
+          echo "🔍 Starting OpenTofu deployment with verbose logging..."
+          
+          # Initialize with local state for now (in production, use S3 backend)
+          echo "📦 Initializing OpenTofu..."
+          tofu init -input=false
+          
+          # Plan the deployment
+          echo "📋 Planning deployment..."
+          tofu plan -input=false -out=tfplan -detailed-exitcode
+          
+          # Apply the changes
+          echo "🚀 Applying changes..."
+          tofu apply -input=false -auto-approve tfplan
+          
+          echo "✅ OpenTofu deployment completed"
+          
+          # Output key information for developers
+          echo ""
+          echo "📋 Terraform Outputs:"
+          tofu output -json | jq -r '
+            "Application URL: " + .application_url.value,
+            "Health Check: " + .health_check_url.value,
+            "Load Balancer: " + .load_balancer_dns.value
+          '
+
       - name: Update ECS service
         run: |
           CLUSTER_NAME="${{ env.MUPPET_NAME }}-cluster"
           SERVICE_NAME="${{ env.MUPPET_NAME }}"
           
-          echo "🔄 Updating ECS service with new image..."
           aws ecs update-service \
             --cluster $CLUSTER_NAME \
             --service $SERVICE_NAME \
             --force-new-deployment
           
-          echo "⏳ Waiting for deployment to stabilize..."
           aws ecs wait services-stable \
             --cluster $CLUSTER_NAME \
             --services $SERVICE_NAME
@@ -117,6 +154,3 @@ jobs:
           echo "   Region: ${{ env.AWS_REGION }}"
           echo "   Cluster: ${{ env.MUPPET_NAME }}-cluster"
           echo "   Service: ${{ env.MUPPET_NAME }}"
-          echo ""
-          echo "ℹ️  Infrastructure is managed by the Muppet Platform"
-          echo "   All infrastructure changes should be made through the platform"
