@@ -26,7 +26,7 @@ provider "aws" {
 # Use the shared Java Micronaut muppet module from GitHub
 # This provides networking, fargate service, and Java-specific optimizations
 module "muppet" {
-  source = "git::https://github.com/{{github_organization}}/muppets.git//terraform-modules/muppet-java-micronaut?ref=v1.0.0"
+  source = "git::https://github.com/{{github_organization}}/muppets.git//terraform-modules/muppet-java-micronaut?ref=main"
   
   # Basic configuration
   muppet_name = var.muppet_name

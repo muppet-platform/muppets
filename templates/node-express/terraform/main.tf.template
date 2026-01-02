@@ -26,7 +26,7 @@ provider "aws" {
 # Use the shared Node.js Express muppet module from GitHub
 # This provides networking, fargate service, and Node.js-specific optimizations
 module "muppet" {
-  source = "git::https://github.com/{{github_organization}}/muppets.git//terraform-modules/muppet-node-express?ref=v1.0.0"
+  source = "git::https://github.com/{{github_organization}}/muppets.git//terraform-modules/muppet-node-express?ref=main"
   
   # Basic configuration
   muppet_name = var.muppet_name
