@@ -4,44 +4,44 @@
 # Application URLs
 output "service_url" {
   description = "URL to access the service (HTTPS by default)"
-  value       = var.enable_https && var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.fargate_service.alb_dns_name}"
+  value       = var.enable_https && var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.fargate_service.load_balancer_dns_name}"
 }
 
 output "application_url" {
   description = "Application URL (alias for service_url)"
-  value       = var.enable_https && var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.fargate_service.alb_dns_name}"
+  value       = var.enable_https && var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.fargate_service.load_balancer_dns_name}"
 }
 
 output "health_check_url" {
   description = "Health check endpoint URL"
-  value       = "${var.enable_https && var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.fargate_service.alb_dns_name}"}/health"
+  value       = "${var.enable_https && var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.fargate_service.load_balancer_dns_name}"}/health"
 }
 
 # Load Balancer Information
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
-  value       = module.fargate_service.alb_dns_name
+  value       = module.fargate_service.load_balancer_dns_name
 }
 
 output "alb_zone_id" {
   description = "Zone ID of the Application Load Balancer"
-  value       = module.fargate_service.alb_zone_id
+  value       = module.fargate_service.load_balancer_zone_id
 }
 
 output "alb_arn" {
   description = "ARN of the Application Load Balancer"
-  value       = module.fargate_service.alb_arn
+  value       = module.fargate_service.load_balancer_arn
 }
 
 # Service Information
 output "ecs_service_name" {
   description = "Name of the ECS service"
-  value       = module.fargate_service.ecs_service_name
+  value       = module.fargate_service.service_name
 }
 
 output "ecs_cluster_name" {
   description = "Name of the ECS cluster"
-  value       = module.fargate_service.ecs_cluster_name
+  value       = module.fargate_service.cluster_name
 }
 
 output "task_definition_arn" {
@@ -86,11 +86,11 @@ output "tls_enabled" {
 output "deployment_info" {
   description = "Deployment information for CI/CD pipelines"
   value = {
-    service_name      = module.fargate_service.ecs_service_name
-    cluster_name      = module.fargate_service.ecs_cluster_name
+    service_name      = module.fargate_service.service_name
+    cluster_name      = module.fargate_service.cluster_name
     container_name    = var.muppet_name
     container_port    = 3000
-    load_balancer_dns = module.fargate_service.alb_dns_name
+    load_balancer_dns = module.fargate_service.load_balancer_dns_name
     health_check_path = "/health"
     environment       = var.environment
     tls_enabled       = var.enable_https
