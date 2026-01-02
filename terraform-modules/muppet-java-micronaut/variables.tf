@@ -134,7 +134,7 @@ variable "domain_name" {
   default     = ""
   
   validation {
-    condition = var.domain_name == "" || can(regex("^[a-z0-9][a-z0-9-]*[a-z0-9]\\.[a-z0-9][a-z0-9-]*[a-z0-9]$", var.domain_name))
+    condition = var.domain_name == "" || can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", var.domain_name))
     error_message = "Domain name must be a valid FQDN (e.g., muppet-name.s3u.dev)."
   }
 }
