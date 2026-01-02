@@ -97,9 +97,13 @@ jobs:
         run: |
           echo "🔍 Starting OpenTofu deployment with verbose logging..."
           
+          # Clean any cached modules to ensure we get the latest version
+          echo "🧹 Cleaning module cache..."
+          rm -rf .terraform/modules
+          
           # Initialize with local state for now (in production, use S3 backend)
           echo "📦 Initializing OpenTofu..."
-          tofu init -input=false
+          tofu init -input=false -upgrade
           
           # Plan the deployment
           echo "📋 Planning deployment..."
