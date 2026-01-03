@@ -226,24 +226,96 @@ class TemplateManager:
             templates_root: Root directory containing templates.
                           Defaults to ../../../templates relative to this file.
         """
+        logger.info("🔍 DEBUG: TemplateManager.__init__ called")
+        print("🔍 DEBUG: TemplateManager.__init__ called")
+        
         if templates_root is None:
-            # Check if running in Docker container with mounted templates
-            docker_templates = Path("/app/templates")
-            if docker_templates.exists():
-                self.templates_root = docker_templates
-            else:
-                # Default to templates directory relative to platform
-                current_file = Path(__file__)
-                self.templates_root = (
-                    current_file.parent.parent.parent.parent / "templates"
-                )
+            # Check multiple possible template locations
+            possible_paths = [
+                Path("/templates"),           # Docker mount location
+                Path("/app/templates"),       # Alternative Docker location
+                Path(__file__).parent.parent.parent.parent / "templates"  # Relative path
+            ]
+            
+            logger.info(f"🔍 DEBUG: Checking possible template paths: {[str(p) for p in possible_paths]}")
+            print(f"🔍 DEBUG: Checking possible template paths: {[str(p) for p in possible_paths]}")
+            
+            self.templates_root = None
+            for path in possible_paths:
+                logger.info(f"🔍 DEBUG: Checking path: {path}")
+                print(f"🔍 DEBUG: Checking path: {path}")
+                logger.info(f"🔍 DEBUG: Path exists: {path.exists()}")
+                print(f"🔍 DEBUG: Path exists: {path.exists()}")
+                
+                if path.exists():
+                    try:
+                        contents = [item.name for item in path.iterdir() if item.is_dir()]
+                        logger.info(f"🔍 DEBUG: Directory contents: {contents}")
+                        print(f"🔍 DEBUG: Directory contents: {contents}")
+                        
+                        # Check if this looks like a templates directory
+                        if any(name in ['java-micronaut', 'node-express'] for name in contents):
+                            self.templates_root = path
+                            logger.info(f"✅ Found templates at: {path}")
+                            print(f"✅ Found templates at: {path}")
+                            break
+                    except PermissionError as e:
+                        logger.warning(f"⚠️ Permission denied accessing {path}: {e}")
+                        print(f"⚠️ Permission denied accessing {path}: {e}")
+            
+            if self.templates_root is None:
+                # Fallback to first existing path or default
+                for path in possible_paths:
+                    if path.exists():
+                        self.templates_root = path
+                        logger.warning(f"⚠️ Using fallback templates path: {path}")
+                        print(f"⚠️ Using fallback templates path: {path}")
+                        break
+                else:
+                    # Use default even if it doesn't exist
+                    self.templates_root = possible_paths[-1]
+                    logger.error(f"❌ No templates directory found, using default: {self.templates_root}")
+                    print(f"❌ No templates directory found, using default: {self.templates_root}")
         else:
             self.templates_root = Path(templates_root)
+            logger.info(f"🎯 Using custom templates path: {self.templates_root}")
+            print(f"🎯 Using custom templates path: {self.templates_root}")
 
         self._template_cache: Dict[str, TemplateMetadata] = {}
         self.auto_generator = AutoGenerator()
 
-        logger.info(f"Template manager initialized with root: {self.templates_root}")
+        logger.info(f"🔧 Template manager initialized with root: {self.templates_root}")
+        print(f"🔧 Template manager initialized with root: {self.templates_root}")
+        logger.info(f"🔧 Templates root exists: {self.templates_root.exists()}")
+        print(f"🔧 Templates root exists: {self.templates_root.exists()}")
+        
+        if self.templates_root.exists():
+            try:
+                template_dirs = [d.name for d in self.templates_root.iterdir() if d.is_dir()]
+                logger.info(f"🔧 Available template directories: {template_dirs}")
+                print(f"🔧 Available template directories: {template_dirs}")
+            except Exception as e:
+                logger.error(f"❌ Error listing template directories: {e}")
+                print(f"❌ Error listing template directories: {e}")
+        else:
+            logger.error(f"❌ Templates root does not exist: {self.templates_root}")
+            print(f"❌ Templates root does not exist: {self.templates_root}")
+            # List what's actually available in common locations
+            for check_path in [Path("/templates"), Path("/app/templates"), Path("/app"), Path("/")]:
+                if check_path.exists():
+                    try:
+                        contents = [item.name for item in check_path.iterdir()]
+                        logger.info(f"📂 Contents of {check_path}: {contents}")
+                        print(f"📂 Contents of {check_path}: {contents}")
+                    except PermissionError:
+                        logger.info(f"📂 {check_path} exists but no permission to list")
+                        print(f"📂 {check_path} exists but no permission to list")
+                else:
+                    logger.info(f"📂 {check_path} does not exist")
+                    print(f"📂 {check_path} does not exist")
+        if self.templates_root.exists():
+            template_dirs = [d.name for d in self.templates_root.iterdir() if d.is_dir()]
+            logger.info(f"Available template directories: {template_dirs}")
 
     def discover_templates(self) -> List[Template]:
         """
@@ -255,16 +327,29 @@ class TemplateManager:
         Raises:
             TemplateValidationError: If template discovery fails
         """
-        logger.info("Discovering templates...")
+        logger.info("🔍 DEBUG: discover_templates called")
+        print("🔍 DEBUG: discover_templates called")
+        logger.info(f"🔍 DEBUG: Templates root: {self.templates_root}")
+        print(f"🔍 DEBUG: Templates root: {self.templates_root}")
+        logger.info(f"🔍 DEBUG: Templates root exists: {self.templates_root.exists()}")
+        print(f"🔍 DEBUG: Templates root exists: {self.templates_root.exists()}")
+        
         templates = []
 
         if not self.templates_root.exists():
             logger.warning(
                 f"Templates root directory does not exist: {self.templates_root}"
             )
+            print(f"⚠️ DEBUG: Templates root directory does not exist: {self.templates_root}")
             return templates
 
+        logger.info("🔍 DEBUG: Iterating through template directories")
+        print("🔍 DEBUG: Iterating through template directories")
+        
         for template_dir in self.templates_root.iterdir():
+            logger.info(f"🔍 DEBUG: Found item: {template_dir.name} (is_dir: {template_dir.is_dir()})")
+            print(f"🔍 DEBUG: Found item: {template_dir.name} (is_dir: {template_dir.is_dir()})")
+            
             if not template_dir.is_dir():
                 continue
 
@@ -273,27 +358,41 @@ class TemplateManager:
                 "tests",
                 "template-tools",
             ]:
+                logger.info(f"🔍 DEBUG: Skipping special directory: {template_dir.name}")
+                print(f"🔍 DEBUG: Skipping special directory: {template_dir.name}")
                 continue
 
             template_yaml = template_dir / "template.yaml"
+            logger.info(f"🔍 DEBUG: Checking for template.yaml at: {template_yaml}")
+            print(f"🔍 DEBUG: Checking for template.yaml at: {template_yaml}")
+            logger.info(f"🔍 DEBUG: template.yaml exists: {template_yaml.exists()}")
+            print(f"🔍 DEBUG: template.yaml exists: {template_yaml.exists()}")
+            
             if not template_yaml.exists():
                 logger.warning(
                     f"Template directory {template_dir.name} missing template.yaml"
                 )
+                print(f"⚠️ DEBUG: Template directory {template_dir.name} missing template.yaml")
                 continue
 
             try:
+                logger.info(f"🔍 DEBUG: Loading template metadata for: {template_dir.name}")
+                print(f"🔍 DEBUG: Loading template metadata for: {template_dir.name}")
+                
                 template = self._load_template_metadata(template_dir)
                 templates.append(template.template)
                 self._template_cache[template.template.name] = template
                 logger.info(
                     f"Discovered template: {template.template.name} v{template.template.version}"
                 )
+                print(f"✅ DEBUG: Discovered template: {template.template.name} v{template.template.version}")
             except Exception as e:
                 logger.error(f"Failed to load template {template_dir.name}: {e}")
+                print(f"❌ DEBUG: Failed to load template {template_dir.name}: {e}")
                 continue
 
         logger.info(f"Discovered {len(templates)} templates")
+        print(f"🔧 DEBUG: Discovered {len(templates)} templates")
         return templates
 
     def get_template(self, name: str) -> Optional[Template]:
@@ -375,33 +474,66 @@ class TemplateManager:
 
             # Validate core files exist (these are always processed)
             missing_core_files = []
+            logger.info(f"🔍 DEBUG: Validating core files for template '{name}'")
+            print(f"🔍 DEBUG: Validating core files for template '{name}'")
+            logger.info(f"🔍 DEBUG: Template path: {template_metadata.template_path}")
+            print(f"🔍 DEBUG: Template path: {template_metadata.template_path}")
+            logger.info(f"🔍 DEBUG: Core files to check: {core_files}")
+            print(f"🔍 DEBUG: Core files to check: {core_files}")
+            
             for file_path in core_files:
+                logger.info(f"🔍 DEBUG: Checking core file: {file_path}")
+                print(f"🔍 DEBUG: Checking core file: {file_path}")
+                
                 full_path = template_metadata.template_path / file_path
+                logger.info(f"🔍 DEBUG: Full path: {full_path}")
+                print(f"🔍 DEBUG: Full path: {full_path}")
+                logger.info(f"🔍 DEBUG: Full path exists: {full_path.exists()}")
+                print(f"🔍 DEBUG: Full path exists: {full_path.exists()}")
 
                 # Check if it's a direct file
                 if full_path.exists():
+                    logger.info(f"✅ DEBUG: Found direct file: {file_path}")
+                    print(f"✅ DEBUG: Found direct file: {file_path}")
                     continue
 
                 # Check if it's a directory
                 if full_path.is_dir():
+                    logger.info(f"✅ DEBUG: Found directory: {file_path}")
+                    print(f"✅ DEBUG: Found directory: {file_path}")
                     continue
 
                 # For files, check if any file in the template matches the pattern
+                logger.info(f"🔍 DEBUG: Searching for pattern match for: {file_path}")
+                print(f"🔍 DEBUG: Searching for pattern match for: {file_path}")
+                
                 found_match = False
+                all_template_files = []
                 for template_file in template_metadata.template_path.rglob("*"):
                     if template_file.is_file():
                         rel_path = template_file.relative_to(
                             template_metadata.template_path
                         )
+                        all_template_files.append(str(rel_path))
+                        
                         if str(rel_path) == file_path or file_path.rstrip("/") in str(
                             rel_path
                         ):
+                            logger.info(f"✅ DEBUG: Found pattern match: {rel_path} matches {file_path}")
+                            print(f"✅ DEBUG: Found pattern match: {rel_path} matches {file_path}")
                             found_match = True
                             break
 
                 if not found_match:
+                    logger.error(f"❌ DEBUG: No match found for: {file_path}")
+                    print(f"❌ DEBUG: No match found for: {file_path}")
+                    logger.info(f"🔍 DEBUG: All template files found: {all_template_files[:10]}...")  # Show first 10
+                    print(f"🔍 DEBUG: All template files found: {all_template_files[:10]}...")
                     missing_core_files.append(file_path)
 
+            logger.info(f"🔍 DEBUG: Missing core files: {missing_core_files}")
+            print(f"🔍 DEBUG: Missing core files: {missing_core_files}")
+            
             if missing_core_files:
                 errors.append(
                     f"Missing core template files: {', '.join(missing_core_files)}"
