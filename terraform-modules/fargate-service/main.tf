@@ -329,6 +329,9 @@ resource "aws_ecs_service" "main" {
   deployment_maximum_percent         = var.deployment_maximum_percent
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
 
+  # Grace period for health checks when using load balancer
+  health_check_grace_period_seconds = var.create_load_balancer ? var.health_check_grace_period_seconds : null
+
   # Ignore task definition changes to allow for blue/green deployments
   lifecycle {
     ignore_changes = [task_definition]

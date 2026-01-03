@@ -150,6 +150,12 @@ variable "health_check_start_period" {
   default     = 60
 }
 
+variable "health_check_grace_period_seconds" {
+  description = "Seconds to ignore failing load balancer health checks on newly instantiated tasks"
+  type        = number
+  default     = 120
+}
+
 # ALB Health Check Configuration
 variable "health_check_path" {
   description = "Health check path for ALB target group"
