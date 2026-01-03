@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..exceptions import DeploymentError, PlatformException, ValidationError
 from ..logging_config import get_logger
+from ..models import MuppetStatus
 from ..services.deployment_service import DeploymentService
 from ..services.muppet_lifecycle_service import MuppetLifecycleService
 from ..state_manager import get_state_manager

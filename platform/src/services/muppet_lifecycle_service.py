@@ -236,22 +236,24 @@ class MuppetLifecycleService:
             return creation_result
 
         except (ValidationError, GitHubError, DeploymentError):
-            # Update muppet status to error if it was added to state
+            # Remove muppet from state if creation failed
             try:
-                await self.state_manager.update_muppet_status(name, MuppetStatus.ERROR)
+                await self.state_manager.remove_muppet_from_state(name)
+                logger.info(f"Removed failed muppet {name} from state")
             except Exception as state_error:
                 logger.warning(
-                    f"Failed to update muppet status to ERROR: {state_error}"
+                    f"Failed to remove failed muppet {name} from state: {state_error}"
                 )
             raise
         except Exception as e:
             logger.error(f"Unexpected error creating muppet {name}: {e}")
-            # Update muppet status to error if it was added to state
+            # Remove muppet from state if creation failed
             try:
-                await self.state_manager.update_muppet_status(name, MuppetStatus.ERROR)
+                await self.state_manager.remove_muppet_from_state(name)
+                logger.info(f"Removed failed muppet {name} from state")
             except Exception as state_error:
                 logger.warning(
-                    f"Failed to update muppet status to ERROR: {state_error}"
+                    f"Failed to remove failed muppet {name} from state: {state_error}"
                 )
             raise PlatformException(
                 message=f"Muppet creation failed: {str(e)}",

@@ -37,15 +37,15 @@ variable "memory" {
 }
 
 variable "min_capacity" {
-  description = "Minimum number of platform service instances"
+  description = "Minimum number of platform service instances (0 for cost optimization)"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "max_capacity" {
   description = "Maximum number of platform service instances"
   type        = number
-  default     = 5
+  default     = 2
 }
 
 variable "target_cpu_utilization" {
