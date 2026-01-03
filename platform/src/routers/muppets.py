@@ -191,7 +191,7 @@ def get_lifecycle_service() -> MuppetLifecycleService:
 
 @router.post(
     "/",
-    response_model=MuppetCreationResponse,
+    response_model=MuppetDetail,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new muppet",
     description="Create a new muppet from a template with complete lifecycle management",
@@ -199,7 +199,7 @@ def get_lifecycle_service() -> MuppetLifecycleService:
 async def create_muppet(
     creation_request: MuppetCreationRequest,
     lifecycle_service: MuppetLifecycleService = Depends(get_lifecycle_service),
-) -> MuppetCreationResponse:
+) -> MuppetDetail:
     """
     Create a new muppet with complete lifecycle management.
 
@@ -236,16 +236,26 @@ async def create_muppet(
                 detail=f"Muppet creation failed: {creation_result.get('error', 'Unknown error')}",
             )
 
-        # Convert to response model
-        response = MuppetCreationResponse(
-            success=creation_result["success"],
-            muppet=creation_result["muppet"],
-            repository=creation_result["repository"],
-            template_generation=creation_result["template_generation"],
-            steering_setup=creation_result["steering_setup"],
-            deployment=creation_result.get("deployment"),
-            created_at=creation_result["created_at"],
-            next_steps=creation_result["next_steps"],
+        # Convert to simple muppet detail response
+        muppet_data = creation_result["muppet"]
+        response = MuppetDetail(
+            name=muppet_data["name"],
+            template=muppet_data["template"],
+            status=muppet_data["status"],
+            github_repo_url=muppet_data["github_repo_url"],
+            fargate_service_arn=muppet_data.get("fargate_service_arn"),
+            created_at=(
+                datetime.fromisoformat(muppet_data["created_at"])
+                if muppet_data.get("created_at")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(muppet_data["updated_at"])
+                if muppet_data.get("updated_at")
+                else None
+            ),
+            terraform_version=muppet_data.get("terraform_version", "1.6.0"),
+            port=muppet_data.get("port", 3000),
         )
 
         logger.info(
