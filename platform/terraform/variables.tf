@@ -39,7 +39,7 @@ variable "memory" {
 variable "min_capacity" {
   description = "Minimum number of platform service instances (0 for cost optimization)"
   type        = number
-  default     = 0
+  default     = 1
 }
 
 variable "max_capacity" {
