@@ -102,7 +102,8 @@ go.work
 # Local development
 .local/
 .secrets/
-.env.local
+# Note: .env.local files are committed as they contain templates/examples
+# Actual secrets should go in .env files (which are ignored)
 .env.development
 .env.test
 .env.production
